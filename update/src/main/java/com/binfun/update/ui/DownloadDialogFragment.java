@@ -33,8 +33,10 @@ private static final String TAG = "ProgressDialogFragment";
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         ProgressDialog dialog = new ProgressDialog(getActivity());
+        dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         dialog.setTitle("正在下载中...");
         dialog.setCancelable(false);
+        dialog.setMax(100);
         dialog.setCanceledOnTouchOutside(false);
         return dialog;
     }

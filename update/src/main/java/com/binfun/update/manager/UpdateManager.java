@@ -1,5 +1,6 @@
 package com.binfun.update.manager;
 
+import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -12,7 +13,8 @@ import android.support.v4.app.FragmentActivity;
 
 import com.binfun.update.IDownloadCallback;
 import com.binfun.update.IDownloadService;
-import com.binfun.update.bean.ApkInfo;
+import com.binfun.update.UpdateStatus;
+import com.binfun.update.bean.UpdateResponse;
 import com.binfun.update.callback.OnDownloadListener;
 import com.binfun.update.callback.OnUpdateListener;
 import com.binfun.update.event.CancelDialogEvent;
@@ -20,6 +22,7 @@ import com.binfun.update.event.UpdateEvent;
 import com.binfun.update.rxbus.RxBus;
 import com.binfun.update.rxbus.RxBusSubscriber;
 import com.binfun.update.service.DownloadService;
+import com.binfun.update.ui.DownloadDialogFragment;
 import com.binfun.update.ui.ProgressDialogFragment;
 import com.binfun.update.ui.ResultDialogFragment;
 
@@ -49,6 +52,7 @@ public class UpdateManager {
     private static final String TAG = "UpdateManager";
     public static final String PROGRESS_DIALOG = "request_dialog";
     public static final String RESULT_DIALOG = "result_dialog";
+    public static final String DOWNLOAD_DIALOG = "download_dialog";
     public final static String FILE_DIR = "file_dir";
     public final static String FILE_NAME = "file_name";
     public final static String APK_URL = "apk_url";
@@ -68,8 +72,8 @@ public class UpdateManager {
 
 
 //    private boolean isOnlyWifi = false;
-    private boolean isShowResultDialog = true;
-    private boolean isShowProgressDialog = true;
+
+    private boolean isAutoPopup = true;
     private boolean isShowNoUpdate = true;
     private Map<String, String> mParms;
 
@@ -80,7 +84,7 @@ public class UpdateManager {
 
     private ProgressDialogFragment mProgressDialogFragment;
     private Retrofit mRetrofit;
-    private Subscriber<ApkInfo> mSubscriber;
+    private Subscriber<UpdateResponse> mSubscriber;
 
     private String mApkUrl;
 
@@ -92,12 +96,13 @@ public class UpdateManager {
         @Override
         public void onDownloadUpdate(long progress, long total) throws RemoteException {
             int currProgress = (int) (progress * 100 / total);
-            if (preProgress < currProgress){
+            if (preProgress < currProgress) {
                 if (mDownloadListener != null) {
                     mDownloadListener.onDownloadUpdate(currProgress);
                 }
             }
             preProgress = currProgress;
+            setDownloadProgress(currProgress);
         }
 
         @Override
@@ -133,6 +138,7 @@ public class UpdateManager {
     private boolean isBind;
 
     private static volatile UpdateManager mInstance;
+    private DownloadDialogFragment mDownloadDialogFragment;
 
     private UpdateManager(Context context) {
         mContext = context;
@@ -140,10 +146,11 @@ public class UpdateManager {
     }
 
     public static UpdateManager getInstance(Context context) {
+        // TODO: 2016/7/28  处理API 自动更新与手动更新
         if (mInstance == null) {
             synchronized (RxBus.class) {
                 if (mInstance == null) {
-                    mInstance = new  UpdateManager(context);
+                    mInstance = new UpdateManager(context);
                 }
             }
         }
@@ -161,7 +168,7 @@ public class UpdateManager {
         Subscription updateSubscription = RxBus.getDefault().toObservable(UpdateEvent.class).subscribe(new RxBusSubscriber<UpdateEvent>() {
             @Override
             protected void onEvent(UpdateEvent updateEvent) {
-                update();
+                download();
             }
         });
         addSubscription(cancelDialogSubscription);
@@ -175,8 +182,18 @@ public class UpdateManager {
         this.mCompositeSubscription.add(subscription);
     }
 
+    public void autoUpate(){
+        update(true);
+    }
 
-    public void checkUpdate() {
+    public void forceUpdate(){
+        update(false);
+    }
+
+
+    private  boolean isForce;
+    public void update(boolean force) {
+        isForce = force;
 //        if (!NetUtil.isConnected(mContext)) {
 //            resultCode = ResultDialogFragment.NONET;
 //            showResultDialog("网络无连接", resultCode);
@@ -198,7 +215,7 @@ public class UpdateManager {
         }
 
 
-        mSubscriber = new Subscriber<ApkInfo>() {
+        mSubscriber = new Subscriber<UpdateResponse>() {
             @Override
             public void onCompleted() {
             }
@@ -206,7 +223,7 @@ public class UpdateManager {
             @Override
             public void onError(Throwable e) {
                 if (mUpdateListener != null) {
-                    mUpdateListener.onError(e);
+                    mUpdateListener.onUpdateReturned(UpdateStatus.Timeout, null);
                 }
                 resultCode = ResultDialogFragment.ERROR;
                 if (mProgressDialogFragment != null) {
@@ -216,36 +233,43 @@ public class UpdateManager {
             }
 
             @Override
-            public void onNext(ApkInfo apkInfo) {
+            public void onNext(UpdateResponse response) {
                 if (mUpdateListener != null) {
-                    mUpdateListener.onCompleted(apkInfo);
-                }
-                String info;
-                if (apkInfo.isForce()) {
-                    resultCode = ResultDialogFragment.FORCE;
-                    info = apkInfo.getUpdate_log();
-                    mApkUrl = apkInfo.getApk_url();
-                    showResultDialog(info, resultCode);
-                } else if (apkInfo.isUpdate()) {
-                    resultCode = ResultDialogFragment.UPDATE;
-                    info = apkInfo.getUpdate_log();
-                    mApkUrl = apkInfo.getApk_url();
-                    showResultDialog(info, resultCode);
-                } else if (!apkInfo.isUpdate()) {
-                    resultCode = ResultDialogFragment.NOUPDATE;
-                    info = "已经是最新版本啦...";
-                    if (isShowNoUpdate) {
-                        showResultDialog(info, resultCode);
+                    //用户设置了回调
+                    if (response.isUpdate()) {
+                        mUpdateListener.onUpdateReturned(UpdateStatus.Yes, response);
+                    } else {
+                        mUpdateListener.onUpdateReturned(UpdateStatus.Yes, response);
                     }
-                }
-                if (mProgressDialogFragment != null) {
-                    mProgressDialogFragment.dismiss();
+                } else {
+                    //用户未设置回调
+                    String info;
+                    if (response.isForce()) {
+                        resultCode = ResultDialogFragment.FORCE;
+                        info = response.getUpdate_log();
+                        mApkUrl = response.getApk_url();
+                        showResultDialog(info, resultCode);
+                    } else if (response.isUpdate()) {
+                        resultCode = ResultDialogFragment.UPDATE;
+                        info = response.getUpdate_log();
+                        mApkUrl = response.getApk_url();
+                        showResultDialog(info, resultCode);
+                    } else if (!response.isUpdate()) {
+                        resultCode = ResultDialogFragment.NOUPDATE;
+                        info = "已经是最新版本啦...";
+                        if (isForce) {
+                            showResultDialog(info, resultCode);
+                        }
+                    }
+                    if (mProgressDialogFragment != null) {
+                        mProgressDialogFragment.dismiss();
+                    }
                 }
             }
         };
 
-        mRetrofit.create(IApkInfo.class)
-                .getApkInfo(mParms)
+        mRetrofit.create(IUpdateResponse.class)
+                .getUpdateResponse(mParms)
                 .doOnSubscribe(new Action0() {
                     @Override
                     public void call() {
@@ -258,24 +282,42 @@ public class UpdateManager {
     }
 
     private void clearApk() {
+        File downloadFile = new File(destFileDir+ File.separator+destFileName);
+        if (downloadFile.exists()){
+            downloadFile.delete();
+        }
     }
 
 
     private void showResultDialog(String info, int code) {
-        if (isShowResultDialog) {
+        if (isAutoPopup&&isForce) {
             ResultDialogFragment dialog = ResultDialogFragment.newInstance(info, code);
             dialog.show(((FragmentActivity) mContext).getSupportFragmentManager(), RESULT_DIALOG);
         }
     }
 
     private void showProgressDialog() {
-        if (isShowProgressDialog) {
+        if (isAutoPopup&&isForce) {
             mProgressDialogFragment = ProgressDialogFragment.newInstance();
             mProgressDialogFragment.show(((FragmentActivity) mContext).getSupportFragmentManager(), PROGRESS_DIALOG);
         }
     }
 
-    public void update() {
+    private void showDownloadDialog(){
+        mDownloadDialogFragment = DownloadDialogFragment.newInstance();
+        mDownloadDialogFragment.show(((FragmentActivity) mContext).getSupportFragmentManager(), DOWNLOAD_DIALOG);
+    }
+
+    private void setDownloadProgress(int progress){
+        if (mDownloadDialogFragment==null){
+            return;
+        }
+        ProgressDialog dialog = (ProgressDialog) mDownloadDialogFragment.getDialog();
+        dialog.setProgress(progress);
+    }
+
+    public void download() {
+        showDownloadDialog();
         Intent intent = new Intent(mContext, DownloadService.class);
         intent.putExtra(FILE_DIR, destFileDir);
         intent.putExtra(FILE_NAME, destFileName);
@@ -308,14 +350,10 @@ public class UpdateManager {
     }
 
 
-    public void isShowResultDialog(boolean isShowResultDialog) {
-        this.isShowResultDialog = isShowResultDialog;
+    public void setUpdateAutoPopup(boolean isAutoPopup) {
+        this.isAutoPopup = isAutoPopup;
     }
 
-    public void isShowProgressDialog(boolean isShowProgressDialog) {
-        this.isShowProgressDialog = isShowProgressDialog;
-
-    }
 
     public void isShowNoUpdate(boolean isShowNoUpdate) {
         this.isShowNoUpdate = isShowNoUpdate;
@@ -353,9 +391,9 @@ public class UpdateManager {
         }
     }
 
-    public interface IApkInfo {
+    public interface IUpdateResponse {
         @GET("version.html")
-        Observable<ApkInfo> getApkInfo(@QueryMap Map<String, String> parameters);
+        Observable<UpdateResponse> getUpdateResponse(@QueryMap Map<String, String> parameters);
     }
 
     public static void installApk(Context context, File file) {
@@ -365,5 +403,4 @@ public class UpdateManager {
         install.setDataAndType(uri, "application/vnd.android.package-archive");
         context.startActivity(install);
     }
-
 }

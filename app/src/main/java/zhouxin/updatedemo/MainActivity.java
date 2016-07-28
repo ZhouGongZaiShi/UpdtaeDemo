@@ -9,9 +9,7 @@ import android.util.Log;
 import android.view.View;
 
 import com.binfun.update.UpdateStatus;
-import com.binfun.update.bean.ApkInfo;
 import com.binfun.update.callback.OnDownloadListener;
-import com.binfun.update.callback.OnUpdateListener;
 import com.binfun.update.manager.UpdateManager;
 
 import java.util.Map;
@@ -30,19 +28,9 @@ public class MainActivity extends AppCompatActivity {
 
         mUpdateManager = UpdateManager.getInstance(this);
         mUpdateManager.setParms(getParms());
-        mUpdateManager.isShowProgressDialog(false);
-        mUpdateManager.isShowNoUpdate(false);
-        mUpdateManager.setOnUpdateListener(new OnUpdateListener() {
-            @Override
-            public void onCompleted(ApkInfo info) {
-                System.out.println("apkinfo :　　onCompleted " + info.toString());
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                e.printStackTrace();
-            }
-        });
+//        mUpdateManager.setOnUpdateListener(new OnUpdateListener() {
+//
+//        });
         mUpdateManager.setOnDownloadListener(new OnDownloadListener(){
 
 
@@ -67,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mUpdateManager.checkUpdate();
+        mUpdateManager.autoUpate();
     }
 
     private Map<String, String> getParms() {
@@ -86,10 +74,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void checkUpdate(View v) {
-
-        mUpdateManager.isShowProgressDialog(true);
-        mUpdateManager.isShowNoUpdate(true);
-        mUpdateManager.checkUpdate();
+        mUpdateManager.forceUpdate();
     }
 
 
