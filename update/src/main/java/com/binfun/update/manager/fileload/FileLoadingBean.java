@@ -21,7 +21,7 @@ public class FileLoadingBean {
         return total;
     }
 
-    public FileLoadingBean(long total, long progress) {
+    public FileLoadingBean(long progress,long total) {
         this.total = total;
         this.progress = progress;
     }

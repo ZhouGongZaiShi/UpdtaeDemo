@@ -4,15 +4,17 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.support.v4.app.FragmentActivity;
 
 import com.binfun.update.IDownloadCallback;
 import com.binfun.update.IDownloadService;
 import com.binfun.update.bean.ApkInfo;
+import com.binfun.update.callback.OnDownloadListener;
+import com.binfun.update.callback.OnUpdateListener;
 import com.binfun.update.event.CancelDialogEvent;
 import com.binfun.update.event.UpdateEvent;
 import com.binfun.update.rxbus.RxBus;
@@ -65,13 +67,14 @@ public class UpdateManager {
     private Context mContext;
 
 
-    private boolean isOnlyWifi = false;
+//    private boolean isOnlyWifi = false;
     private boolean isShowResultDialog = true;
     private boolean isShowProgressDialog = true;
     private boolean isShowNoUpdate = true;
     private Map<String, String> mParms;
 
-    private UpdateListener mUpdateListener;
+    private OnUpdateListener mUpdateListener;
+    private OnDownloadListener mDownloadListener;
 
     private int resultCode = ResultDialogFragment.NOUPDATE;
 
@@ -81,27 +84,27 @@ public class UpdateManager {
 
     private String mApkUrl;
 
+    private int preProgress;
+
     private IDownloadService mService;
-    private IDownloadCallback mCallback = new IDownloadCallback.Stub(){
+    private IDownloadCallback mCallback = new IDownloadCallback.Stub() {
 
         @Override
-        public void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat, double aDouble, String aString) throws RemoteException {
-
-        }
-
-        @Override
-        public void onDownloadStart() throws RemoteException {
-
-        }
-
-        @Override
-        public void onDownloadUpdate(int progress) throws RemoteException {
-
+        public void onDownloadUpdate(long progress, long total) throws RemoteException {
+            int currProgress = (int) (progress * 100 / total);
+            if (preProgress < currProgress){
+                if (mDownloadListener != null) {
+                    mDownloadListener.onDownloadUpdate(currProgress);
+                }
+            }
+            preProgress = currProgress;
         }
 
         @Override
         public void onDownloadEnd(int result, String file) throws RemoteException {
-
+            if (mDownloadListener != null) {
+                mDownloadListener.onDownloadEnd(result, file);
+            }
         }
     };
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -117,20 +120,39 @@ public class UpdateManager {
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
-
+            if (isBind && mService != null) {
+                try {
+                    mService.unregisterDownloadCallback(mCallback);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+            mService = null;
         }
     };
     private boolean isBind;
 
+    private static volatile UpdateManager mInstance;
 
-    public UpdateManager(Context context) {
-        mContext = context.getApplicationContext();
-        subsceibeEvent();
-
+    private UpdateManager(Context context) {
+        mContext = context;
+        subscribeEvent();
     }
 
-    private void subsceibeEvent() {
-        Subscription cacenlDialogSubscription = RxBus.getDefault().toObservable(CancelDialogEvent.class).subscribe(new RxBusSubscriber<CancelDialogEvent>() {
+    public static UpdateManager getInstance(Context context) {
+        if (mInstance == null) {
+            synchronized (RxBus.class) {
+                if (mInstance == null) {
+                    mInstance = new  UpdateManager(context);
+                }
+            }
+        }
+        return mInstance;
+    }
+
+
+    private void subscribeEvent() {
+        Subscription cancelDialogSubscription = RxBus.getDefault().toObservable(CancelDialogEvent.class).subscribe(new RxBusSubscriber<CancelDialogEvent>() {
             @Override
             protected void onEvent(CancelDialogEvent cancelEvent) {
                 cancelCheckUpdate();
@@ -142,7 +164,7 @@ public class UpdateManager {
                 update();
             }
         });
-        addSubscription(cacenlDialogSubscription);
+        addSubscription(cancelDialogSubscription);
         addSubscription(updateSubscription);
     }
 
@@ -163,6 +185,10 @@ public class UpdateManager {
 //            }
 //            return;
 //        }
+
+        clearApk();
+
+
         if (mRetrofit == null) {
             mRetrofit = new Retrofit.Builder()
                     .baseUrl("http://192.168.1.166:8080/updateDemo/")
@@ -194,7 +220,7 @@ public class UpdateManager {
                 if (mUpdateListener != null) {
                     mUpdateListener.onCompleted(apkInfo);
                 }
-                String info = "";
+                String info;
                 if (apkInfo.isForce()) {
                     resultCode = ResultDialogFragment.FORCE;
                     info = apkInfo.getUpdate_log();
@@ -208,7 +234,7 @@ public class UpdateManager {
                 } else if (!apkInfo.isUpdate()) {
                     resultCode = ResultDialogFragment.NOUPDATE;
                     info = "已经是最新版本啦...";
-                    if (isShowNoUpdate){
+                    if (isShowNoUpdate) {
                         showResultDialog(info, resultCode);
                     }
                 }
@@ -224,12 +250,14 @@ public class UpdateManager {
                     @Override
                     public void call() {
                         showProgressDialog();
-                        SystemClock.sleep(2000);
                     }
                 })
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(mSubscriber);
+    }
+
+    private void clearApk() {
     }
 
 
@@ -258,23 +286,22 @@ public class UpdateManager {
 
 
     /**
-     * 设置下载监听回调
-     */
-    public void setDownloadListener() {
-
-    }
-
-
-    /**
      * 设置检查更新监听回调
      */
-    public void setUpdateListener(UpdateListener listener) {
+    public void setOnUpdateListener(OnUpdateListener listener) {
         mUpdateListener = listener;
     }
 
-    public void setUpdateOnlyWifi(boolean isOnlyWifi) {
-        this.isOnlyWifi = isOnlyWifi;
+    /**
+     * 设置下载监听回调
+     */
+    public void setOnDownloadListener(OnDownloadListener listener) {
+        mDownloadListener = listener;
     }
+
+//    public void setUpdateOnlyWifi(boolean isOnlyWifi) {
+//        this.isOnlyWifi = isOnlyWifi;
+//    }
 
     public void setParms(Map<String, String> parms) {
         mParms = parms;
@@ -319,7 +346,7 @@ public class UpdateManager {
         }
     }
 
-    public void unRegister(){
+    public void unRegister() {
         if (isBind) {
             mContext.unbindService(mConnection);
             isBind = false;
@@ -331,9 +358,12 @@ public class UpdateManager {
         Observable<ApkInfo> getApkInfo(@QueryMap Map<String, String> parameters);
     }
 
-    public interface UpdateListener {
-        void onCompleted(ApkInfo info);
-
-        void onError(Throwable e);
+    public static void installApk(Context context, File file) {
+        Uri uri = Uri.fromFile(file);
+        Intent install = new Intent(Intent.ACTION_VIEW);
+        install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        install.setDataAndType(uri, "application/vnd.android.package-archive");
+        context.startActivity(install);
     }
+
 }

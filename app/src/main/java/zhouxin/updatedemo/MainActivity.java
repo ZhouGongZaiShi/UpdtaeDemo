@@ -5,9 +5,13 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 
+import com.binfun.update.UpdateStatus;
 import com.binfun.update.bean.ApkInfo;
+import com.binfun.update.callback.OnDownloadListener;
+import com.binfun.update.callback.OnUpdateListener;
 import com.binfun.update.manager.UpdateManager;
 
 import java.util.Map;
@@ -24,11 +28,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mUpdateManager = new UpdateManager(this);
+        mUpdateManager = UpdateManager.getInstance(this);
         mUpdateManager.setParms(getParms());
         mUpdateManager.isShowProgressDialog(false);
         mUpdateManager.isShowNoUpdate(false);
-        mUpdateManager.setUpdateListener(new UpdateManager.UpdateListener() {
+        mUpdateManager.setOnUpdateListener(new OnUpdateListener() {
             @Override
             public void onCompleted(ApkInfo info) {
                 System.out.println("apkinfo :　　onCompleted " + info.toString());
@@ -39,6 +43,30 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         });
+        mUpdateManager.setOnDownloadListener(new OnDownloadListener(){
+
+
+
+            @Override
+            public void onDownloadUpdate(int progress) {
+                Log.d(TAG, "onDownloadUpdate : " +progress);
+            }
+
+            @Override
+            public void onDownloadEnd(int result, String file) {
+                switch (result){
+                    case UpdateStatus.DOWNLOAD_COMPLETE_SUCCESS:
+                        Log.d(TAG, "onDownloadEnd : 下载成功  file" + file);
+                        break;
+                    case UpdateStatus.DOWNLOAD_COMPLETE_FAIL:
+                        Log.d(TAG, "onDownloadEnd : 下载失败  file" + file);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        });
+
         mUpdateManager.checkUpdate();
     }
 
@@ -65,5 +93,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mUpdateManager.unRegister();
+    }
 }

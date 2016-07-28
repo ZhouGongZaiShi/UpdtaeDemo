@@ -8,10 +8,9 @@ interface IDownloadCallback {
      * Demonstrates some basic types that you can use as parameters
      * and return values in AIDL.
      */
-    void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat,
-            double aDouble, String aString);
+//    void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat,
+//            double aDouble, String aString);
 
-    void onDownloadStart();
-    void onDownloadUpdate(int progress);
+    void onDownloadUpdate(long progress,long total);
     void onDownloadEnd(int result,String file);
 }
