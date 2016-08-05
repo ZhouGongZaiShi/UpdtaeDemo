@@ -4,10 +4,12 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.binfun.update.IDownloadCallback;
 import com.binfun.update.IDownloadService;
@@ -36,6 +38,8 @@ import retrofit2.http.Url;
  * 创建日期 : 2016/7/27 10:42
  */
 public class DownloadService extends Service {
+    private static final String TAG = "DownloadService";
+
     /**
      * 目标文件存储的文件夹路径
      */
@@ -49,6 +53,7 @@ public class DownloadService extends Service {
     private Retrofit mRetrofit;
     private String mApkUrl;
 
+    private int mPid;
 
     private RemoteCallbackList<IDownloadCallback> mCallbackList = new RemoteCallbackList<>();
 
@@ -67,16 +72,24 @@ public class DownloadService extends Service {
 //            mCallbackList.beginBroadcast();
 //            mCallbackList.finishBroadcast();
         }
+
+        @Override
+        public int getPid() throws RemoteException{
+            return mPid;
+        }
     };
 
 
     @Override
     public void onCreate() {
+        Log.d(TAG, "onCreate : ");
         super.onCreate();
+        mPid = Process.myPid();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "onStartCommand : " );
         if (intent != null) {
             String fileDir = intent.getStringExtra(UpdateManager.FILE_DIR);
             String fileName = intent.getStringExtra(UpdateManager.FILE_NAME);
@@ -97,13 +110,15 @@ public class DownloadService extends Service {
 
 
     private void loadFile() {
+        // TODO: 2016/8/4  下载后回调线程问题 
         if (mRetrofit == null) {
             mRetrofit = new Retrofit.Builder()
                     .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
-                    .baseUrl("http://192.168.1.166:8080/updateDemo/")
+                    .baseUrl("http://api.binfun.tv:3020/api/")
                     .client(initOkHttpClient())
                     .build();
         }
+        Log.d(TAG, "loadFile : url  " +mApkUrl );
         mRetrofit.create(IFileDownload.class)
                 .download(mApkUrl).enqueue(new FileCallback(destFileDir,destFileName) {
             @Override
@@ -136,6 +151,7 @@ public class DownloadService extends Service {
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Log.d(TAG, "onFailure : " +t.getMessage() );
                 int len = mCallbackList.beginBroadcast();
                 for (int i = 0; i < len; i++) {
                     try {
@@ -170,7 +186,6 @@ public class DownloadService extends Service {
         });
         return builder.build();
     }
-
 
 
 

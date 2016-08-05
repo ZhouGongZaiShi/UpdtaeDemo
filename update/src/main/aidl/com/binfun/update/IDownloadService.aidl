@@ -7,4 +7,5 @@ import com.binfun.update.IDownloadCallback;
 interface IDownloadService {
     void registerDownloadCallback(IDownloadCallback cb);
     void unregisterDownloadCallback(IDownloadCallback cb);
+    int getPid();
 }
