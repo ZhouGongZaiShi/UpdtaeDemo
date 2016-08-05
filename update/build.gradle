@@ -16,10 +16,66 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+
+    lintOptions {
+        abortOnError false
+    }
+}
+
+////打包之前，删除以前的文件
+//task clearJar(type: Delete) {
+//    delete 'build/libs/test.jar'
+//}
+
+////打包生成test.jar
+//task makeLibraryJar(type:org.gradle.api.tasks.bundling.Jar) {
+//    //指定生成的jar名
+//    baseName 'test'
+//    //从哪里打包class文件,可以指定文件和目录
+//    from('build/intermediates/classes/debug/com/example/test/')
+//    //打包到jar后的目录结构
+//    into('com/example/test/')
+//    //去掉不需要打包的目录和文件
+//    exclude 'META-INF/LICENSE.txt'
+//    exclude 'META-INF/NOTICE.txt'
+//}
+
+//makeJar.dependsOn(clearJar,build)
+
+
+task releaseMyLib(type: Jar, dependsOn: ['build']) {
+    archiveName = 'my-lib.jar'
+    from('build/intermediates/classes/release')
+    from(project.zipTree("libs/adapter-rxjava-2.1.0.jar"))
+    from(project.zipTree("libs/converter-gson-2.1.0.jar"))
+    from(project.zipTree("libs/gson-2.7.jar"))
+    from(project.zipTree("libs/okhttp-3.3.0.jar"))
+    from(project.zipTree("libs/okio-1.8.0.jar"))
+    from(project.zipTree("libs/retrofit-2.1.0.jar"))
+    from(project.zipTree("libs/rxandroid-1.2.0.jar"))
+    from(project.zipTree("libs/rxjava-1.1.5.jar"))
+//    into( 'build/libs')
+//    include('classes.jar')
+//    rename('classes.jar', 'my-lib.jar')
+    destinationDir = file('build/libs')
+    exclude('com/binfun/update/BuildConfig.class')
+    exclude('com/binfun/update/BuildConfig\$*.class')
+    exclude('**/R.class')
+    exclude('**/R\$*.class')
+    include('com/binfun/update/**/*.class')
+    include('retrofit2/adapter/rxjava/**/*.class')
+    include('retrofit2/converter/gson/**/*.class')
+    include('com/google/gson/**/*.class')
+    include('okhttp3/**/*.class')
+    include('okio/**/*.class')
+    include('retrofit2/**/*.class')
+    include('rx/android/**/*.class')
+    include('rx/**/*.class')
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
+    //    compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     provided 'com.android.support:appcompat-v7:24.0.0'
     //rxjava
@@ -32,6 +88,6 @@ dependencies {
     compile 'com.squareup.retrofit2:retrofit:2.1.0'
     //retrofit的rxjava支持
     compile 'com.squareup.retrofit2:adapter-rxjava:2.1.0'
-    //retrofit的fastjson支持
-    compile 'org.ligboy.retrofit2:converter-fastjson:2.1.0'
+    //retrofit的gson支持
+    compile 'com.squareup.retrofit2:converter-gson:2.1.0'
 }

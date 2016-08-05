@@ -24,9 +24,10 @@ import com.binfun.update.rxbus.RxBus;
 public class ProgressDialogFragment extends DialogFragment {
 private static final String TAG = "ProgressDialogFragment";
 
+
+
     public static ProgressDialogFragment newInstance(){
-        ProgressDialogFragment fragment = new ProgressDialogFragment();
-        return fragment;
+        return new ProgressDialogFragment();
     }
 
     @NonNull
@@ -34,7 +35,6 @@ private static final String TAG = "ProgressDialogFragment";
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         ProgressDialog dialog = new ProgressDialog(getActivity());
         dialog.setMessage("正在检查更新...");
-        dialog.setCanceledOnTouchOutside(false);
         return dialog;
     }
 

@@ -1,6 +1,6 @@
 package com.binfun.update.callback;
 
-import com.binfun.update.bean.ApkInfo;
+import com.binfun.update.bean.UpdateResponse;
 
 /**
  * 描述 :
@@ -8,7 +8,5 @@ import com.binfun.update.bean.ApkInfo;
  * 创建日期 : 2016/7/28 15:11
  */
 public interface OnUpdateListener {
-    void onCompleted(ApkInfo info);
-
-    void onError(Throwable e);
+    void onUpdateReturned(int updateStatus,UpdateResponse updateInfo);
 }

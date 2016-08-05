@@ -25,6 +25,7 @@ public class ResultDialogFragment extends DialogFragment implements DialogInterf
     public static final int FORCE = 2;
     public static final int ERROR = 3;
     public static final int NONET = 4;
+    public static final int CHCEKING = 5;
     private int resultCode = NOUPDATE;
 
     public static ResultDialogFragment newInstance(String info, int code) {
@@ -51,7 +52,7 @@ public class ResultDialogFragment extends DialogFragment implements DialogInterf
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         builder.setTitle("检查更新");
         builder.setMessage(info);
-        //// TODO: 2016/7/25  onclick 集中处理 
+
         switch (code) {
             case NOUPDATE:
                 builder.setNegativeButton("确认", this);
@@ -70,6 +71,9 @@ public class ResultDialogFragment extends DialogFragment implements DialogInterf
                 break;
             case NONET:
                 builder.setPositiveButton("设置网络",this);
+                break;
+            case CHCEKING:
+                builder.setNegativeButton("确认",this);
                 break;
             default:
                 break;

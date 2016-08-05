@@ -1,34 +1,46 @@
 package com.binfun.update.manager;
 
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.support.v4.app.FragmentActivity;
+import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
 
 import com.binfun.update.IDownloadCallback;
 import com.binfun.update.IDownloadService;
-import com.binfun.update.bean.ApkInfo;
+import com.binfun.update.UpdateStatus;
+import com.binfun.update.bean.UpdateResponse;
 import com.binfun.update.callback.OnDownloadListener;
 import com.binfun.update.callback.OnUpdateListener;
 import com.binfun.update.event.CancelDialogEvent;
-import com.binfun.update.event.UpdateEvent;
 import com.binfun.update.rxbus.RxBus;
 import com.binfun.update.rxbus.RxBusSubscriber;
 import com.binfun.update.service.DownloadService;
-import com.binfun.update.ui.ProgressDialogFragment;
 import com.binfun.update.ui.ResultDialogFragment;
 
 import java.io.File;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
-import retrofit2.converter.fastjson.FastJsonConverterFactory;
+import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.GET;
 import retrofit2.http.QueryMap;
 import rx.Observable;
@@ -44,13 +56,35 @@ import rx.subscriptions.CompositeSubscription;
  * 作者 : 周鑫
  * 创建日期 : 2016/7/22 15:26
  */
-public class UpdateManager {
+public class UpdateManager implements DialogInterface.OnClickListener {
 
     private static final String TAG = "UpdateManager";
     public static final String PROGRESS_DIALOG = "request_dialog";
     public static final String RESULT_DIALOG = "result_dialog";
+    public static final String DOWNLOAD_DIALOG = "download_dialog";
     public final static String FILE_DIR = "file_dir";
     public final static String FILE_NAME = "file_name";
+
+    public static final int NOUPDATE = 0;
+    public static final int UPDATE = 1;
+    public static final int FORCE = 2;
+    public static final int ERROR = 3;
+
+    private static final int CANCEL_DOWNLOAD = 233;
+
+
+    private int mDownloadPid;
+    private Intent mDownloadIntent;
+
+    private int mVersionCode;
+
+
+    @IntDef({NOUPDATE, UPDATE, FORCE, ERROR})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ResultStatus {
+    }
+
+
     public final static String APK_URL = "apk_url";
 
     private CompositeSubscription mCompositeSubscription;
@@ -64,23 +98,21 @@ public class UpdateManager {
      */
     private String destFileName = "binfun.apk";
 
+
     private Context mContext;
 
 
 //    private boolean isOnlyWifi = false;
-    private boolean isShowResultDialog = true;
-    private boolean isShowProgressDialog = true;
-    private boolean isShowNoUpdate = true;
+
+    private boolean isAutoPopup = true;
     private Map<String, String> mParms;
 
     private OnUpdateListener mUpdateListener;
     private OnDownloadListener mDownloadListener;
 
-    private int resultCode = ResultDialogFragment.NOUPDATE;
 
-    private ProgressDialogFragment mProgressDialogFragment;
     private Retrofit mRetrofit;
-    private Subscriber<ApkInfo> mSubscriber;
+    private Subscriber<UpdateResponse> mSubscriber;
 
     private String mApkUrl;
 
@@ -92,26 +124,50 @@ public class UpdateManager {
         @Override
         public void onDownloadUpdate(long progress, long total) throws RemoteException {
             int currProgress = (int) (progress * 100 / total);
-            if (preProgress < currProgress){
+            if (preProgress < currProgress) {
                 if (mDownloadListener != null) {
                     mDownloadListener.onDownloadUpdate(currProgress);
+                } else {
+                    setDownloadProgress(currProgress);
                 }
+                Log.d(TAG, "curr : " + currProgress);
             }
             preProgress = currProgress;
         }
 
         @Override
         public void onDownloadEnd(int result, String file) throws RemoteException {
+            killDownloadService();
+            Log.d(TAG, "onDownloadEnd : " + result);
             if (mDownloadListener != null) {
                 mDownloadListener.onDownloadEnd(result, file);
+            } else {
+                if (mDownloadDialog != null) {
+                    mDownloadDialog.dismiss();
+                }
+                switch (result) {
+                    case UpdateStatus.DOWNLOAD_COMPLETE_SUCCESS:
+                        Log.d(TAG, "onDownloadEnd : 下载成功");
+                        installApk(mContext, new File(file));
+                        break;
+                    case UpdateStatus.DOWNLOAD_COMPLETE_FAIL:
+                        Log.d(TAG, "onDownloadEnd : 下载失败");
+                        mDownloadDialog.setMessage("下载失败!");
+                        break;
+                    default:
+                        break;
+                }
             }
+
         }
     };
     private ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             mService = IDownloadService.Stub.asInterface(iBinder);
+
             try {
+                mDownloadPid = mService.getPid();
                 mService.registerDownloadCallback(mCallback);
             } catch (RemoteException e) {
                 e.printStackTrace();
@@ -130,12 +186,17 @@ public class UpdateManager {
             mService = null;
         }
     };
+
     private boolean isBind;
+    private boolean isForce;
 
     private static volatile UpdateManager mInstance;
+    private ProgressDialog mDownloadDialog;
+    private ProgressDialog mProgressDialog;
+    private AlertDialog mResultDialog;
 
     private UpdateManager(Context context) {
-        mContext = context;
+        mContext = context.getApplicationContext();
         subscribeEvent();
     }
 
@@ -143,7 +204,7 @@ public class UpdateManager {
         if (mInstance == null) {
             synchronized (RxBus.class) {
                 if (mInstance == null) {
-                    mInstance = new  UpdateManager(context);
+                    mInstance = new UpdateManager(context);
                 }
             }
         }
@@ -158,14 +219,7 @@ public class UpdateManager {
                 cancelCheckUpdate();
             }
         });
-        Subscription updateSubscription = RxBus.getDefault().toObservable(UpdateEvent.class).subscribe(new RxBusSubscriber<UpdateEvent>() {
-            @Override
-            protected void onEvent(UpdateEvent updateEvent) {
-                update();
-            }
-        });
         addSubscription(cancelDialogSubscription);
-        addSubscription(updateSubscription);
     }
 
     public void addSubscription(Subscription subscription) {
@@ -175,30 +229,35 @@ public class UpdateManager {
         this.mCompositeSubscription.add(subscription);
     }
 
+    public void autoUpdate() {
+        update(false);
+    }
 
-    public void checkUpdate() {
-//        if (!NetUtil.isConnected(mContext)) {
-//            resultCode = ResultDialogFragment.NONET;
-//            showResultDialog("网络无连接", resultCode);
-//            if (mUpdateListener != null) {
-//                mUpdateListener.onError(new Throwable("No network connection!"));
-//            }
-//            return;
-//        }
+    public void forceUpdate() {
+        update(true);
+    }
 
-        clearApk();
 
+    public void update(final boolean force) {
+        isForce = force;
+//        clearApk();
+        // TODO: 2016/8/3 http错误       syntax error, unexpect token error
 
         if (mRetrofit == null) {
             mRetrofit = new Retrofit.Builder()
-                    .baseUrl("http://192.168.1.166:8080/updateDemo/")
-                    .addConverterFactory(FastJsonConverterFactory.create())
+                    .baseUrl("http://api.binfun.tv:3020/api/v1/")
+                    .addConverterFactory(GsonConverterFactory.create())
                     .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+                    .client(createOkHttpClient())
                     .build();
         }
 
+        cancelCheckUpdate();
 
-        mSubscriber = new Subscriber<ApkInfo>() {
+        mSubscriber = new Subscriber<UpdateResponse>() {
+            @ResultStatus
+            int resultCode = NOUPDATE;
+
             @Override
             public void onCompleted() {
             }
@@ -206,82 +265,218 @@ public class UpdateManager {
             @Override
             public void onError(Throwable e) {
                 if (mUpdateListener != null) {
-                    mUpdateListener.onError(e);
+                    mUpdateListener.onUpdateReturned(UpdateStatus.TIMEOUT, null);
                 }
-                resultCode = ResultDialogFragment.ERROR;
-                if (mProgressDialogFragment != null) {
-                    mProgressDialogFragment.dismiss();
+                resultCode = ERROR;
+                if (mProgressDialog != null) {
+                    mProgressDialog.dismiss();
                 }
-                showResultDialog("服务器繁忙,请稍后再试!", resultCode);
+                showResultDialog("请求失败:" + e.getMessage(), resultCode, null);
+                Log.d(TAG, "onError : " + e.getMessage());
+                System.out.println("onError : " + e.getMessage());
             }
 
             @Override
-            public void onNext(ApkInfo apkInfo) {
-                if (mUpdateListener != null) {
-                    mUpdateListener.onCompleted(apkInfo);
+            public void onNext(UpdateResponse response) {
+                if (mVersionCode == 0) {
+                    return;
                 }
-                String info;
-                if (apkInfo.isForce()) {
-                    resultCode = ResultDialogFragment.FORCE;
-                    info = apkInfo.getUpdate_log();
-                    mApkUrl = apkInfo.getApk_url();
-                    showResultDialog(info, resultCode);
-                } else if (apkInfo.isUpdate()) {
-                    resultCode = ResultDialogFragment.UPDATE;
-                    info = apkInfo.getUpdate_log();
-                    mApkUrl = apkInfo.getApk_url();
-                    showResultDialog(info, resultCode);
-                } else if (!apkInfo.isUpdate()) {
-                    resultCode = ResultDialogFragment.NOUPDATE;
-                    info = "已经是最新版本啦...";
-                    if (isShowNoUpdate) {
-                        showResultDialog(info, resultCode);
+                if (response == null) {
+                    return;
+                }
+                UpdateResponse.ReleaseBean release = response.getRelease();
+                if (release != null) {
+                    mApkUrl = release.getUrl();
+                }
+
+                if (mUpdateListener != null) {
+                    //用户设置了回调
+                    if (mVersionCode < response.getIncompatibleVersion()) {
+                        //强制更新
+                        mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, response);
+                    } else if (mVersionCode < release.getVersionCode()) {
+                        //有更新
+                        mUpdateListener.onUpdateReturned(UpdateStatus.YES, response);
+                    } else {
+                        //无更新
+                        mUpdateListener.onUpdateReturned(UpdateStatus.NO, response);
+                    }
+
+                } else {
+                    //用户未设置回调
+                    if (mVersionCode < response.getIncompatibleVersion()) {
+                        //强制更新
+                        resultCode = FORCE;
+                        showResultDialog(null, resultCode, response);
+                    } else if (mVersionCode < release.getVersionCode()) {
+                        //有更新
+                        resultCode = UPDATE;
+                        showResultDialog(null, resultCode, response);
+                    } else {
+                        //无更新
+                        resultCode = NOUPDATE;
+                        if (isForce) {
+                            showResultDialog("已经是最新版本啦...", resultCode, response);
+                        }
                     }
                 }
-                if (mProgressDialogFragment != null) {
-                    mProgressDialogFragment.dismiss();
+                if (mProgressDialog != null) {
+                    mProgressDialog.dismiss();
                 }
             }
         };
 
-        mRetrofit.create(IApkInfo.class)
-                .getApkInfo(mParms)
+
+        mRetrofit.create(IUpdateResponse.class)
+                .getUpdateResponse(mParms)
+                .subscribeOn(Schedulers.io())
                 .doOnSubscribe(new Action0() {
                     @Override
                     public void call() {
+                        Log.d(TAG, "call : 准备");
                         showProgressDialog();
                     }
                 })
-                .subscribeOn(Schedulers.io())
+                .subscribeOn(AndroidSchedulers.mainThread()) // 指定doOnSubscribe执行在主线程
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(mSubscriber);
     }
 
-    private void clearApk() {
+    private OkHttpClient createOkHttpClient() {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.connectTimeout(3000, TimeUnit.MILLISECONDS);
+        return builder.build();
     }
 
+//    private void clearApk() {
+//
+//        File downloadFile = new File(destFileDir+ File.separator+destFileName);
+//        if (downloadFile.exists()){
+//            downloadFile.delete();
+//        }
+//    }
 
-    private void showResultDialog(String info, int code) {
-        if (isShowResultDialog) {
-            ResultDialogFragment dialog = ResultDialogFragment.newInstance(info, code);
-            dialog.show(((FragmentActivity) mContext).getSupportFragmentManager(), RESULT_DIALOG);
+
+    private void showResultDialog(String info, int code, @Nullable UpdateResponse response) {
+        if (isAutoPopup) {
+            if (isForce) {
+                //强制状态下显示所有结果的对话框
+//                ResultDialogFragment dialog = ResultDialogFragment.newInstance(info, code);
+//                dialog.show(((FragmentActivity) mContext).getSupportFragmentManager(), RESULT_DIALOG);
+                createResultDialog(info, code, response);
+            } else {
+                if (code == ResultDialogFragment.UPDATE || code == ResultDialogFragment.FORCE) {
+                    //非强制状态下，仅显示强制更新与有更新的结果对话框
+//                    ResultDialogFragment dialog = ResultDialogFragment.newInstance(info, code);
+//                    dialog.show(((FragmentActivity) mContext).getSupportFragmentManager(), RESULT_DIALOG);
+                    createResultDialog(info, code, response);
+                }
+            }
         }
+    }
+
+    private void createResultDialog(String info, int code, @Nullable UpdateResponse response) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        String msg;
+        if (response == null) {
+            msg = info;
+        } else {
+            StringBuilder sb = new StringBuilder();
+            sb.append("最新版本:")
+                    .append(response.getRelease().getVersionName())
+                    .append("\n")
+                    .append("有新版本啦,是否升级？\n\n")
+                    .append("更新内容\n")
+                    .append(response.getRelease().getChangeLog());
+
+            msg = sb.toString();
+        }
+
+        builder.setMessage(msg);
+
+        switch (code) {
+            case NOUPDATE:
+                builder.setTitle("检查更新");
+                builder.setNegativeButton("确认", this);
+                break;
+            case UPDATE:
+                builder.setTitle("发现新版本");
+                builder.setPositiveButton("立即更新", this);
+                builder.setNegativeButton("以后再说", this);
+                break;
+            case FORCE:
+                builder.setTitle("发现新版本");
+                builder.setCancelable(false);
+                builder.setPositiveButton("立即更新", this);
+                break;
+            case ERROR:
+                builder.setTitle("检查更新");
+                builder.setNegativeButton("确认", this);
+                break;
+            default:
+                builder.setTitle("更新");
+                builder.setNegativeButton("确认", this);
+                break;
+        }
+        mResultDialog = builder.create();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+        } else {
+            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        mResultDialog.show();
     }
 
     private void showProgressDialog() {
-        if (isShowProgressDialog) {
-            mProgressDialogFragment = ProgressDialogFragment.newInstance();
-            mProgressDialogFragment.show(((FragmentActivity) mContext).getSupportFragmentManager(), PROGRESS_DIALOG);
+        if (mUpdateListener == null) {
+            if (isAutoPopup && isForce) {
+//            mProgressDialogFragment = ProgressDialogFragment.newInstance();
+//            mProgressDialogFragment.show(((FragmentActivity) mContext).getSupportFragmentManager(), PROGRESS_DIALOG);
+                mProgressDialog = new ProgressDialog(mContext);
+                mProgressDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+                } else {
+                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+                }
+                mProgressDialog.setMessage("正在检查更新...");
+                mProgressDialog.show();
+            }
         }
     }
 
-    public void update() {
-        Intent intent = new Intent(mContext, DownloadService.class);
-        intent.putExtra(FILE_DIR, destFileDir);
-        intent.putExtra(FILE_NAME, destFileName);
-        intent.putExtra(APK_URL, mApkUrl);
-        mContext.startService(intent);
-        isBind = mContext.bindService(new Intent(mContext, DownloadService.class), mConnection, Context.BIND_AUTO_CREATE);
+    private void showDownloadDialog() {
+//        mDownloadDialogFragment = DownloadDialogFragment.newInstance();
+//        mDownloadDialogFragment.show(((FragmentActivity) mContext).getSupportFragmentManager(), DOWNLOAD_DIALOG);
+        mDownloadDialog = new ProgressDialog(mContext);
+        mDownloadDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+        } else {
+            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+        }
+        mDownloadDialog.setTitle("正在下载中...");
+        mDownloadDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消下载", this);
+        mDownloadDialog.setCancelable(false);
+        mDownloadDialog.setMax(100);
+        mDownloadDialog.setCanceledOnTouchOutside(false);
+        mDownloadDialog.show();
+    }
+
+    private void setDownloadProgress(int progress) {
+        if (mDownloadDialog != null) {
+            mDownloadDialog.setProgress(progress);
+        }
+    }
+
+    public void download() {
+        showDownloadDialog();
+        mDownloadIntent = new Intent(mContext, DownloadService.class);
+        mDownloadIntent.putExtra(FILE_DIR, destFileDir);
+        mDownloadIntent.putExtra(FILE_NAME, destFileName);
+        mDownloadIntent.putExtra(APK_URL, mApkUrl);
+        mContext.startService(mDownloadIntent);
+        isBind = mContext.bindService(mDownloadIntent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
 
@@ -303,22 +498,13 @@ public class UpdateManager {
 //        this.isOnlyWifi = isOnlyWifi;
 //    }
 
-    public void setParms(Map<String, String> parms) {
+    public void setParms(@NonNull Map<String, String> parms) {
         mParms = parms;
     }
 
 
-    public void isShowResultDialog(boolean isShowResultDialog) {
-        this.isShowResultDialog = isShowResultDialog;
-    }
-
-    public void isShowProgressDialog(boolean isShowProgressDialog) {
-        this.isShowProgressDialog = isShowProgressDialog;
-
-    }
-
-    public void isShowNoUpdate(boolean isShowNoUpdate) {
-        this.isShowNoUpdate = isShowNoUpdate;
+    public void setUpdateAutoPopup(boolean isAutoPopup) {
+        this.isAutoPopup = isAutoPopup;
     }
 
 
@@ -340,6 +526,10 @@ public class UpdateManager {
         destFileName = fileName;
     }
 
+    public void setVersionCode(int versionCode) {
+        mVersionCode = versionCode;
+    }
+
     public void cancelCheckUpdate() {
         if (mSubscriber != null && !mSubscriber.isUnsubscribed()) {
             mSubscriber.unsubscribe();
@@ -347,15 +537,58 @@ public class UpdateManager {
     }
 
     public void unRegister() {
+        cancelCheckUpdate();
+        killDownloadService();
+        hideDialogs();
+    }
+
+    private void killDownloadService() {
         if (isBind) {
             mContext.unbindService(mConnection);
+            mContext.stopService(mDownloadIntent);
+//            mConnection = null;
             isBind = false;
+            if (mDownloadPid != 0) {
+                android.os.Process.killProcess(mDownloadPid);
+            }
         }
     }
 
-    public interface IApkInfo {
-        @GET("version.html")
-        Observable<ApkInfo> getApkInfo(@QueryMap Map<String, String> parameters);
+    private void hideDialogs() {
+        if (mProgressDialog != null && mProgressDialog.isShowing()) {
+            mProgressDialog.dismiss();
+        }
+        if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+            mDownloadDialog.dismiss();
+        }
+        if (mResultDialog != null && mResultDialog.isShowing()) {
+            mResultDialog.dismiss();
+        }
+    }
+
+    @Override
+    public void onClick(DialogInterface dialogInterface, int i) {
+        switch (i) {
+
+            case DialogInterface.BUTTON_POSITIVE:
+                //下载文件
+                download();
+                break;
+
+            case DialogInterface.BUTTON_NEGATIVE:
+                if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
+                    //取消下载
+                    killDownloadService();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    public interface IUpdateResponse {
+        @GET("sysinfo")
+        Observable<UpdateResponse> getUpdateResponse(@QueryMap Map<String, String> parameters);
     }
 
     public static void installApk(Context context, File file) {
@@ -365,5 +598,4 @@ public class UpdateManager {
         install.setDataAndType(uri, "application/vnd.android.package-archive");
         context.startActivity(install);
     }
-
 }
