@@ -1,6 +1,7 @@
 package com.binfun.update.manager;
 
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -8,6 +9,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
@@ -25,31 +27,15 @@ import com.binfun.update.UpdateStatus;
 import com.binfun.update.bean.UpdateResponse;
 import com.binfun.update.callback.OnDownloadListener;
 import com.binfun.update.callback.OnUpdateListener;
-import com.binfun.update.event.CancelDialogEvent;
-import com.binfun.update.rxbus.RxBus;
-import com.binfun.update.rxbus.RxBusSubscriber;
-import com.binfun.update.service.DownloadService;
 import com.binfun.update.ui.ResultDialogFragment;
+import com.binfun.update.utils.HttpUtil;
+import com.google.gson.Gson;
 
 import java.io.File;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import okhttp3.OkHttpClient;
-import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
-import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.http.GET;
-import retrofit2.http.QueryMap;
-import rx.Observable;
-import rx.Subscriber;
-import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action0;
-import rx.schedulers.Schedulers;
-import rx.subscriptions.CompositeSubscription;
 
 /**
  * 描述 : 升级管理类
@@ -87,7 +73,6 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     public final static String APK_URL = "apk_url";
 
-    private CompositeSubscription mCompositeSubscription;
     /**
      * 目标文件存储的文件夹路径
      */
@@ -111,8 +96,6 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private OnDownloadListener mDownloadListener;
 
 
-    private Retrofit mRetrofit;
-    private Subscriber<UpdateResponse> mSubscriber;
 
     private String mApkUrl;
 
@@ -197,12 +180,11 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     private UpdateManager(Context context) {
         mContext = context.getApplicationContext();
-        subscribeEvent();
     }
 
     public static UpdateManager getInstance(Context context) {
         if (mInstance == null) {
-            synchronized (RxBus.class) {
+            synchronized (UpdateManager.class) {
                 if (mInstance == null) {
                     mInstance = new UpdateManager(context);
                 }
@@ -212,22 +194,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
 
-    private void subscribeEvent() {
-        Subscription cancelDialogSubscription = RxBus.getDefault().toObservable(CancelDialogEvent.class).subscribe(new RxBusSubscriber<CancelDialogEvent>() {
-            @Override
-            protected void onEvent(CancelDialogEvent cancelEvent) {
-                cancelCheckUpdate();
-            }
-        });
-        addSubscription(cancelDialogSubscription);
-    }
 
-    public void addSubscription(Subscription subscription) {
-        if (this.mCompositeSubscription == null) {
-            this.mCompositeSubscription = new CompositeSubscription();
-        }
-        this.mCompositeSubscription.add(subscription);
-    }
 
     public void autoUpdate() {
         update(false);
@@ -241,112 +208,79 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     public void update(final boolean force) {
         isForce = force;
 //        clearApk();
-        // TODO: 2016/8/3 http错误       syntax error, unexpect token error
 
-        if (mRetrofit == null) {
-            mRetrofit = new Retrofit.Builder()
-                    .baseUrl("http://api.binfun.tv:3020/api/v1/")
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
-                    .client(createOkHttpClient())
-                    .build();
-        }
-
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                int resultCode = NOUPDATE;
+//                String result = HttpUtil.getNetText4Https("https://api1.binfun.tv/api/v1/sysinfo?package=com.iflyor.binfuntv.game&channel=shafa");
+//                if (TextUtils.isEmpty(result)){
+//                    //无数据
+//                    if (mUpdateListener != null) {
+//                        mUpdateListener.onUpdateReturned(UpdateStatus.TIMEOUT, null);
+//                    }
+//                    resultCode = ERROR;
+//                    if (mProgressDialog != null) {
+//                        mProgressDialog.dismiss();
+//                    }
+//                    showResultDialog("请求失败:", resultCode, null);
+//                }else {
+//                    Gson gson = new Gson();
+//                    UpdateResponse response = gson.fromJson(result, UpdateResponse.class);
+//                    if (mVersionCode == 0) {
+//                        return;
+//                    }
+//                    if (response == null) {
+//                        return;
+//                    }
+//                    UpdateResponse.ReleaseBean release = response.getRelease();
+//                    if (release != null) {
+//                        mApkUrl = release.getUrl();
+//                    }
+//
+//                    if (mUpdateListener != null) {
+//                        //用户设置了回调
+//                        if (mVersionCode < response.getIncompatibleVersion()) {
+//                            //强制更新
+//                            mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, response);
+//                        } else if (mVersionCode < release.getVersionCode()) {
+//                            //有更新
+//                            mUpdateListener.onUpdateReturned(UpdateStatus.YES, response);
+//                        } else {
+//                            //无更新
+//                            mUpdateListener.onUpdateReturned(UpdateStatus.NO, response);
+//                        }
+//
+//                    } else {
+//                        //用户未设置回调
+//                        if (mVersionCode < response.getIncompatibleVersion()) {
+//                            //强制更新
+//                            resultCode = FORCE;
+//                            showResultDialog(null, resultCode, response);
+//                        } else if (mVersionCode < release.getVersionCode()) {
+//                            //有更新
+//                            resultCode = UPDATE;
+//                            showResultDialog(null, resultCode, response);
+//                        } else {
+//                            //无更新
+//                            resultCode = NOUPDATE;
+//                            if (isForce) {
+//                                showResultDialog("已经是最新版本啦...", resultCode, response);
+//                            }
+//                        }
+//                    }
+//                    if (mProgressDialog != null) {
+//                        mProgressDialog.dismiss();
+//                    }
+//                }
+//            }
+//        }).start();
+        CheckAsyncTask checkAsyncTask = new CheckAsyncTask();
+        checkAsyncTask.execute("https://api1.binfun.tv/api/v1/sysinfo?package=com.iflyor.binfuntv.game&channel=shafa");
         cancelCheckUpdate();
-
-        mSubscriber = new Subscriber<UpdateResponse>() {
-            @ResultStatus
-            int resultCode = NOUPDATE;
-
-            @Override
-            public void onCompleted() {
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                if (mUpdateListener != null) {
-                    mUpdateListener.onUpdateReturned(UpdateStatus.TIMEOUT, null);
-                }
-                resultCode = ERROR;
-                if (mProgressDialog != null) {
-                    mProgressDialog.dismiss();
-                }
-                showResultDialog("请求失败:" + e.getMessage(), resultCode, null);
-                Log.d(TAG, "onError : " + e.getMessage());
-                System.out.println("onError : " + e.getMessage());
-            }
-
-            @Override
-            public void onNext(UpdateResponse response) {
-                if (mVersionCode == 0) {
-                    return;
-                }
-                if (response == null) {
-                    return;
-                }
-                UpdateResponse.ReleaseBean release = response.getRelease();
-                if (release != null) {
-                    mApkUrl = release.getUrl();
-                }
-
-                if (mUpdateListener != null) {
-                    //用户设置了回调
-                    if (mVersionCode < response.getIncompatibleVersion()) {
-                        //强制更新
-                        mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, response);
-                    } else if (mVersionCode < release.getVersionCode()) {
-                        //有更新
-                        mUpdateListener.onUpdateReturned(UpdateStatus.YES, response);
-                    } else {
-                        //无更新
-                        mUpdateListener.onUpdateReturned(UpdateStatus.NO, response);
-                    }
-
-                } else {
-                    //用户未设置回调
-                    if (mVersionCode < response.getIncompatibleVersion()) {
-                        //强制更新
-                        resultCode = FORCE;
-                        showResultDialog(null, resultCode, response);
-                    } else if (mVersionCode < release.getVersionCode()) {
-                        //有更新
-                        resultCode = UPDATE;
-                        showResultDialog(null, resultCode, response);
-                    } else {
-                        //无更新
-                        resultCode = NOUPDATE;
-                        if (isForce) {
-                            showResultDialog("已经是最新版本啦...", resultCode, response);
-                        }
-                    }
-                }
-                if (mProgressDialog != null) {
-                    mProgressDialog.dismiss();
-                }
-            }
-        };
-
-
-        mRetrofit.create(IUpdateResponse.class)
-                .getUpdateResponse(mParms)
-                .subscribeOn(Schedulers.io())
-                .doOnSubscribe(new Action0() {
-                    @Override
-                    public void call() {
-                        Log.d(TAG, "call : 准备");
-                        showProgressDialog();
-                    }
-                })
-                .subscribeOn(AndroidSchedulers.mainThread()) // 指定doOnSubscribe执行在主线程
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(mSubscriber);
     }
 
-    private OkHttpClient createOkHttpClient() {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.connectTimeout(3000, TimeUnit.MILLISECONDS);
-        return builder.build();
-    }
+
 
 //    private void clearApk() {
 //
@@ -470,13 +404,19 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     public void download() {
-        showDownloadDialog();
-        mDownloadIntent = new Intent(mContext, DownloadService.class);
-        mDownloadIntent.putExtra(FILE_DIR, destFileDir);
-        mDownloadIntent.putExtra(FILE_NAME, destFileName);
-        mDownloadIntent.putExtra(APK_URL, mApkUrl);
-        mContext.startService(mDownloadIntent);
-        isBind = mContext.bindService(mDownloadIntent, mConnection, Context.BIND_AUTO_CREATE);
+        DownloadManager mgr = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
+        Uri uri = Uri.parse(mApkUrl);
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+        request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE| DownloadManager.Request.NETWORK_WIFI);
+        request.setTitle("应用更新");
+        long id = mgr.enqueue(request);
+//        showDownloadDialog();
+//        mDownloadIntent = new Intent(mContext, DownloadService.class);
+//        mDownloadIntent.putExtra(FILE_DIR, destFileDir);
+//        mDownloadIntent.putExtra(FILE_NAME, destFileName);
+//        mDownloadIntent.putExtra(APK_URL, mApkUrl);
+//        mContext.startService(mDownloadIntent);
+//        isBind = mContext.bindService(mDownloadIntent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
 
@@ -531,9 +471,9 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     public void cancelCheckUpdate() {
-        if (mSubscriber != null && !mSubscriber.isUnsubscribed()) {
-            mSubscriber.unsubscribe();
-        }
+//        if (mSubscriber != null && !mSubscriber.isUnsubscribed()) {
+//            mSubscriber.unsubscribe();
+//        }
     }
 
     public void unRegister() {
@@ -586,10 +526,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         }
     }
 
-    public interface IUpdateResponse {
-        @GET("sysinfo")
-        Observable<UpdateResponse> getUpdateResponse(@QueryMap Map<String, String> parameters);
-    }
+
 
     public static void installApk(Context context, File file) {
         Uri uri = Uri.fromFile(file);
@@ -597,5 +534,79 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         install.setDataAndType(uri, "application/vnd.android.package-archive");
         context.startActivity(install);
+    }
+
+
+
+    public  class CheckAsyncTask extends AsyncTask<String, Integer, UpdateResponse> {
+        private int resultCode = NOUPDATE;
+
+        @Override
+        protected void onPreExecute() {
+            showProgressDialog();
+            super.onPreExecute();
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+        }
+
+        @Override
+        protected UpdateResponse doInBackground(String... strings) {
+            String netText4Https = HttpUtil.getNetText4Https(strings[0]);
+            Gson gson = new Gson();
+            return gson.fromJson(netText4Https, UpdateResponse.class);
+        }
+
+        @Override
+        protected void onPostExecute(UpdateResponse response) {
+            if (mProgressDialog != null) {
+                mProgressDialog.dismiss();
+            }
+            if (mVersionCode == 0) {
+                return;
+            }
+            if (response == null) {
+                return;
+            }
+            UpdateResponse.ReleaseBean release = response.getRelease();
+            if (release != null) {
+                mApkUrl = release.getUrl();
+            }
+
+            if (mUpdateListener != null) {
+                //用户设置了回调
+                if (mVersionCode < response.getIncompatibleVersion()) {
+                    //强制更新
+                    mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, response);
+                } else if (mVersionCode < release.getVersionCode()) {
+                    //有更新
+                    mUpdateListener.onUpdateReturned(UpdateStatus.YES, response);
+                } else {
+                    //无更新
+                    mUpdateListener.onUpdateReturned(UpdateStatus.NO, response);
+                }
+
+            } else {
+                //用户未设置回调
+                if (mVersionCode < response.getIncompatibleVersion()) {
+                    //强制更新
+                    resultCode = FORCE;
+                    showResultDialog(null, resultCode, response);
+                } else if (mVersionCode < release.getVersionCode()) {
+                    //有更新
+                    resultCode = UPDATE;
+                    showResultDialog(null, resultCode, response);
+                } else {
+                    //无更新
+                    resultCode = NOUPDATE;
+                    if (isForce) {
+                        showResultDialog("已经是最新版本啦...", resultCode, response);
+                    }
+                }
+            }
+            super.onPostExecute(response);
+        }
     }
 }

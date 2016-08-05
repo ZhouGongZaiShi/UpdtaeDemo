@@ -23,26 +23,6 @@ android {
     }
 }
 
-////打包之前，删除以前的文件
-//task clearJar(type: Delete) {
-//    delete 'build/libs/test.jar'
-//}
-
-////打包生成test.jar
-//task makeLibraryJar(type:org.gradle.api.tasks.bundling.Jar) {
-//    //指定生成的jar名
-//    baseName 'test'
-//    //从哪里打包class文件,可以指定文件和目录
-//    from('build/intermediates/classes/debug/com/example/test/')
-//    //打包到jar后的目录结构
-//    into('com/example/test/')
-//    //去掉不需要打包的目录和文件
-//    exclude 'META-INF/LICENSE.txt'
-//    exclude 'META-INF/NOTICE.txt'
-//}
-
-//makeJar.dependsOn(clearJar,build)
-
 
 task releaseMyLib(type: Jar, dependsOn: ['build']) {
     archiveName = 'my-lib.jar'
@@ -75,19 +55,8 @@ task releaseMyLib(type: Jar, dependsOn: ['build']) {
 }
 
 dependencies {
-    //    compile fileTree(include: ['*.jar'], dir: 'libs')
+    compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     provided 'com.android.support:appcompat-v7:24.0.0'
-    //rxjava
-    compile 'io.reactivex:rxjava:1.1.5'
-    //rxAndroid
-    compile 'io.reactivex:rxandroid:1.2.0'
-    //okHttp3
-    compile 'com.squareup.okhttp3:okhttp:3.3.0'
-    //retrofit
-    compile 'com.squareup.retrofit2:retrofit:2.1.0'
-    //retrofit的rxjava支持
-    compile 'com.squareup.retrofit2:adapter-rxjava:2.1.0'
-    //retrofit的gson支持
-    compile 'com.squareup.retrofit2:converter-gson:2.1.0'
+    compile 'com.google.code.gson:gson:2.7'
 }

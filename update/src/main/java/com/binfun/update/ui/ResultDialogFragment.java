@@ -7,8 +7,6 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 
-import com.binfun.update.event.UpdateEvent;
-import com.binfun.update.rxbus.RxBus;
 import com.binfun.update.utils.NetUtil;
 
 /**
@@ -91,7 +89,7 @@ public class ResultDialogFragment extends DialogFragment implements DialogInterf
                     NetUtil.openSetting(getActivity());
                 }else{
                     //下载文件
-                    RxBus.getDefault().post(new UpdateEvent());
+//                    RxBus.getDefault().post(new UpdateEvent());
                 }
 //                if (ResultDialogFragment.this != null) {
 //                    dismiss();

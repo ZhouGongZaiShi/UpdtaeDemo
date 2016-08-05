@@ -11,9 +11,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.binfun.update.event.CancelDialogEvent;
-import com.binfun.update.rxbus.RxBus;
-
 
 /**
  * 描述 :
@@ -49,7 +46,7 @@ private static final String TAG = "ProgressDialogFragment";
 
     @Override
     public void onDismiss(DialogInterface dialog) {
-        RxBus.getDefault().post(new CancelDialogEvent());
+//        RxBus.getDefault().post(new CancelDialogEvent());
         super.onDismiss(dialog);
     }
 }
