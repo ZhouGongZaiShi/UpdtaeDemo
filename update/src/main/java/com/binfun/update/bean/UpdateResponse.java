@@ -11,26 +11,24 @@ import java.util.List;
  */
 public class UpdateResponse {
 
-
     /**
-     * package : com.iflyor.binfuntv
-     * downloadServer : http://apkdl.binfun.tv
+     * package : com.iflyor.binfuntv.game
      * mkbrokers : ["http://183.131.135.142:3916/v1/caches"]
-     * tracker : {"trackerServerUrl":"http://cdn.freebsd.org.cn/upload/","enabled":false}
+     * tracker : {"trackerServerUrl":"http://cdn.freebsd.org.cn/upload/","enabled":true}
      * sc : {"sysId":11,"xDomain":".easetuner.com"}
-     * description : 光芒体育TV版
-     * incompatibleVersion : 30
-     * platform : 0
-     * name : 光芒体育TV版
-     * release : {"versionName":"0.1.150807.1","versionCode":54,"changeLog":"test\r\ntest","targetSdkVersion":"21","minSdkVersion":"14","updateDate":"2016-08-03T11:33:53.073Z","channel":"anzhuo","url":"http://apkdl.binfun.tv:5000/apk/Gm4TV0.1_54v0.1.150807.1_anzhuo_release.apk","md5":"70d90ecb1987942a5cd9e04995b1ae12"}
+     * description : 缤纷电竞TV版
+     * incompatibleVersion : 0
+     * name : 缤纷电竞TV版
+     * code : 0
+     * info :
+     * release : {"versionName":"0.1.160721.1","versionCode":80,"changeLog":"1. 重写界面，体验更流畅 2. 修复已知bug","targetSdkVersion":22,"minSdkVersion":14,"updateDate":"2016-08-05T06:37:41.600Z","channel":"shafa","url":"http://apkdl.binfun.tv/apk/BinFun4TV0.1_80v0.1.160721.1_shafa_release.apk","md5":"ec7b84edb0a4008976e904aa3f1aafb4","size":6789170}
      */
 
     @SerializedName("package")
     private String packageX;
-    private String downloadServer;
     /**
      * trackerServerUrl : http://cdn.freebsd.org.cn/upload/
-     * enabled : false
+     * enabled : true
      */
 
     private TrackerBean tracker;
@@ -42,19 +40,20 @@ public class UpdateResponse {
     private ScBean sc;
     private String description;
     private int incompatibleVersion;
-    private int platform;
     private String name;
+    private int code;
+    private String info;
     /**
-     * versionName : 0.1.150807.1
-     * versionCode : 54
-     * changeLog : test
-     test
-     * targetSdkVersion : 21
+     * versionName : 0.1.160721.1
+     * versionCode : 80
+     * changeLog : 1. 重写界面，体验更流畅 2. 修复已知bug
+     * targetSdkVersion : 22
      * minSdkVersion : 14
-     * updateDate : 2016-08-03T11:33:53.073Z
-     * channel : anzhuo
-     * url : http://apkdl.binfun.tv:5000/apk/Gm4TV0.1_54v0.1.150807.1_anzhuo_release.apk
-     * md5 : 70d90ecb1987942a5cd9e04995b1ae12
+     * updateDate : 2016-08-05T06:37:41.600Z
+     * channel : shafa
+     * url : http://apkdl.binfun.tv/apk/BinFun4TV0.1_80v0.1.160721.1_shafa_release.apk
+     * md5 : ec7b84edb0a4008976e904aa3f1aafb4
+     * size : 6789170
      */
 
     private ReleaseBean release;
@@ -66,14 +65,6 @@ public class UpdateResponse {
 
     public void setPackageX(String packageX) {
         this.packageX = packageX;
-    }
-
-    public String getDownloadServer() {
-        return downloadServer;
-    }
-
-    public void setDownloadServer(String downloadServer) {
-        this.downloadServer = downloadServer;
     }
 
     public TrackerBean getTracker() {
@@ -108,20 +99,28 @@ public class UpdateResponse {
         this.incompatibleVersion = incompatibleVersion;
     }
 
-    public int getPlatform() {
-        return platform;
-    }
-
-    public void setPlatform(int platform) {
-        this.platform = platform;
-    }
-
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
+    }
+
+    public String getInfo() {
+        return info;
+    }
+
+    public void setInfo(String info) {
+        this.info = info;
     }
 
     public ReleaseBean getRelease() {
@@ -186,12 +185,13 @@ public class UpdateResponse {
         private String versionName;
         private int versionCode;
         private String changeLog;
-        private String targetSdkVersion;
-        private String minSdkVersion;
+        private int targetSdkVersion;
+        private int minSdkVersion;
         private String updateDate;
         private String channel;
         private String url;
         private String md5;
+        private int size;
 
         public String getVersionName() {
             return versionName;
@@ -217,19 +217,19 @@ public class UpdateResponse {
             this.changeLog = changeLog;
         }
 
-        public String getTargetSdkVersion() {
+        public int getTargetSdkVersion() {
             return targetSdkVersion;
         }
 
-        public void setTargetSdkVersion(String targetSdkVersion) {
+        public void setTargetSdkVersion(int targetSdkVersion) {
             this.targetSdkVersion = targetSdkVersion;
         }
 
-        public String getMinSdkVersion() {
+        public int getMinSdkVersion() {
             return minSdkVersion;
         }
 
-        public void setMinSdkVersion(String minSdkVersion) {
+        public void setMinSdkVersion(int minSdkVersion) {
             this.minSdkVersion = minSdkVersion;
         }
 
@@ -263,6 +263,14 @@ public class UpdateResponse {
 
         public void setMd5(String md5) {
             this.md5 = md5;
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void setSize(int size) {
+            this.size = size;
         }
     }
 }

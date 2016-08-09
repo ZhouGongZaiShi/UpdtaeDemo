@@ -1,5 +1,6 @@
 package zhouxin.updatedemo;
 
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -25,7 +26,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mUpdateManager = UpdateManager.getInstance(this.getApplicationContext());
-        mUpdateManager.setParms(getParms());
+//        mUpdateManager.setParms(getParms());
+        mUpdateManager.setChannelName("shafa");
         mUpdateManager.setVersionCode(getVersionCode());
 //        mUpdateManager.setOnUpdateListener(new OnUpdateListener() {
 //
@@ -67,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
     public int getVersionCode(){
         PackageInfo packageInfo = null;
         try {
@@ -92,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
 //            parms.put("versioncode", String.valueOf(packageInfo.versionCode));
 //        }
 //            parms.put("package", getPackageName());
-            parms.put("package", "com.iflyor.binfuntv");
+        parms.put("package", "com.iflyor.binfuntv");
 
         parms.put("channel","anzhuo");
         return parms;
@@ -103,6 +106,8 @@ public class MainActivity extends AppCompatActivity {
         
         mUpdateManager.forceUpdate();
     }
+
+
 
 
     @Override
