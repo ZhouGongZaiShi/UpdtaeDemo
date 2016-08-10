@@ -8,5 +8,5 @@ import com.binfun.update.bean.UpdateResponse;
  * 创建日期 : 2016/7/28 15:11
  */
 public interface OnUpdateListener {
-    void onUpdateReturned(int updateStatus,UpdateResponse updateInfo);
+    void onUpdateReturned(int statusCode,UpdateResponse updateInfo);
 }

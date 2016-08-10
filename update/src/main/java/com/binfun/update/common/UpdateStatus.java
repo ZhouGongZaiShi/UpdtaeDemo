@@ -8,7 +8,6 @@ package com.binfun.update.common;
 public class UpdateStatus {
     public static final int YES = 0;
     public static final int NO = 1;
-    public static final int NoneNET = 2;
     public static final int TIMEOUT = 3;
     public static final int IsUpdate = 4;
     public static final int Update = 5;
@@ -22,5 +21,6 @@ public class UpdateStatus {
     public static final int DOWNLOAD_COMPLETE_FAIL = 0;
     public static final int DOWNLOAD_COMPLETE_SUCCESS = 1;
     public static final int DOWNLOAD_CHECK_MD5_FAIL = 693;
+    public static final int CANCEL_DOWNLOAD = 233;
 //    public static final int DOWNLOAD_NEED_RESTART = 3;
 }

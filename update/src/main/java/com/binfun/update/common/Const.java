@@ -7,5 +7,4 @@ package com.binfun.update.common;
  */
 public class Const {
     public static final String BASE_QUEST_URL = "https://api1.binfun.tv/api/v1/sysinfo";
-    public static final int REQUEST_PARM = 154;
 }

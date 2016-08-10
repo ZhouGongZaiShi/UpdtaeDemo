@@ -7,7 +7,7 @@ package com.binfun.update.callback;
  */
 public interface OnDownloadListener {
 
-    void onDownloadUpdate(int progress);
+    void onDownloadUpdate(int currProgress, int progressByte, int totalByte);
 
     void onDownloadEnd(int result, String file);
 }

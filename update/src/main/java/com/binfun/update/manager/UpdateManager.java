@@ -1,5 +1,6 @@
 package com.binfun.update.manager;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.app.ProgressDialog;
@@ -8,6 +9,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.net.Uri;
@@ -19,11 +22,11 @@ import android.os.Message;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.text.Html;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.Log;
 import android.view.Window;
-import android.view.WindowManager;
 
 import com.binfun.update.bean.UpdateResponse;
 import com.binfun.update.callback.OnDownloadListener;
@@ -33,16 +36,15 @@ import com.binfun.update.common.UpdateStatus;
 import com.binfun.update.utils.DownloadManagerUtil;
 import com.binfun.update.utils.HttpUtil;
 import com.binfun.update.utils.MD5Util;
-import com.binfun.update.utils.NetUtil;
 import com.binfun.update.utils.SPUtil;
-import com.google.gson.Gson;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.math.BigInteger;
-import java.security.MessageDigest;
 import java.util.Map;
 
 
@@ -55,28 +57,19 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     private static final String TAG = "UpdateManager";
 
-    public static final String PROGRESS_DIALOG = "request_dialog";
-    public static final String RESULT_DIALOG = "result_dialog";
-    public static final String DOWNLOAD_DIALOG = "download_dialog";
 
-    public final static String FILE_DIR = "file_dir";
-    public final static String FILE_NAME = "file_name";
+    private final static String SPKEY_DOWNLOAD_ID = "download_id";
+    private final static String SPKEY_DOWNLOAD_MD5 = "download_md5";
+    private final static String SPKEY_DOWNLOAD_FILE = "download_file";
 
-    public final static String SPKEY_DOWNLOAD_ID = "download_id";
-    public final static String SPKEY_DOWNLOAD_MD5 = "download_md5";
-    public final static String SPKEY_DOWNLOAD_FILE = "download_file";
-
-    public static final int NOUPDATE = 0;
-    public static final int UPDATE = 1;
-    public static final int FORCE = 2;
-    public static final int ERROR = 3;
-
-    private static final int CANCEL_DOWNLOAD = 233;
-    private static final int DOWNLOAD_UPDATE = 100;
+    private static final int NOUPDATE = 0;
+    private static final int UPDATE = 1;
+    private static final int FORCE = 2;
+    private static final int ERROR = 3;
 
 
-    private int mDownloadPid;
-    private Intent mDownloadIntent;
+    private static final int MSG_DOWNLOAD_UPDATE = 100;
+
 
     private int mVersionCode;
 
@@ -87,28 +80,14 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private long mDownloadId;
     private boolean isOnlyWifi;
     private CheckAsyncTask mCheckAsyncTask;
-    private final Gson mGson;
     private String mChannel;
     private String mAppName;
-    private String mApkMD5;
+    private String mGid;
 
     @IntDef({NOUPDATE, UPDATE, FORCE, ERROR})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ResultStatus {
     }
-
-
-    public final static String APK_URL = "apk_url";
-
-    /**
-     * 目标文件存储的文件夹路径
-     */
-    private String destFileDir = Environment.getExternalStorageDirectory().getAbsolutePath() + File
-            .separator + "BF_DEFAULT_DIR";
-    /**
-     * 目标文件存储的文件名
-     */
-    private String destFileName = "binfun.apk";
 
 
     private Context mContext;
@@ -138,9 +117,10 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private AlertDialog mResultDialog;
 
     private UpdateManager(Context context) {
-        mContext = context.getApplicationContext();
+        mContext = context;
+        mVersionCode = getVersionCode();
+
         mHandler = new DownloadHandler();
-        mGson = new Gson();
         mManager = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
         mDownloadManagerUtil = new DownloadManagerUtil(mManager);
 
@@ -155,28 +135,52 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         mContext.registerReceiver(receiver, filter);
     }
 
-    public static UpdateManager getInstance(Context context) {
+    private UpdateManager(Context context, String channel, String gid) {
+        this(context);
+        mChannel = channel;
+        mGid = gid;
+    }
+
+    private UpdateManager(Context context, Map<String, String> parms) {
+        this(context);
+        mParms = parms;
+    }
+
+
+    public static UpdateManager init(@NonNull Context context, @NonNull String channel, @NonNull String gid) {
         if (mInstance == null) {
             synchronized (UpdateManager.class) {
                 if (mInstance == null) {
-                    mInstance = new UpdateManager(context);
+                    mInstance = new UpdateManager(context, channel, gid);
                 }
             }
         }
         return mInstance;
     }
 
+    public static UpdateManager init(@NonNull Context context, @NonNull Map<String, String> parms) {
+        if (mInstance == null) {
+            synchronized (UpdateManager.class) {
+                if (mInstance == null) {
+                    mInstance = new UpdateManager(context, parms);
+                }
+            }
+        }
+        return mInstance;
+    }
 
-    public void autoUpdate() {
+    public void autoUpdate(@NonNull Context context) {
+        mContext = context;
         update(false);
     }
 
-    public void forceUpdate() {
+    public void forceUpdate(@NonNull Context context) {
+        mContext = context;
         update(true);
     }
 
 
-    public void update(final boolean force) {
+    public void update( boolean force) {
         if (mParms == null && TextUtils.isEmpty(mChannel)) {
             throw new IllegalArgumentException("you must call setChannel(String channel),and channel cannot be empty");
         }
@@ -193,12 +197,16 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
             url.delete(url.length() - 1, url.length());
         } else {
-//            url.append("package=").append(mContext.getPackageName()).append("&channel=").append(mChannel);
-            url.append("package=").append("com.iflyor.bindasuntv").append("&channel=").append(mChannel);
+            url.append("package=").append(mContext.getPackageName())
+//            url.append("package=").append("com.iflyor.binfuntv")
+                    .append("&channel=").append(mChannel)
+                    .append("&gid=").append(mGid)
+                    .append("&sysver=").append(Build.VERSION.SDK_INT)
+                    .append("&ver=").append(getVersionName());
         }
         mCheckAsyncTask.execute(url.toString());
-
     }
+
 
 
     private void showResultDialog(String info, int code, @Nullable UpdateResponse response) {
@@ -207,7 +215,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 //强制状态下显示所有结果的对话框
                 createResultDialog(info, code, response);
             } else {
-                if (code == UPDATE || code == FORCE ||code ==ERROR) {
+                if (code == UPDATE || code == FORCE || code == ERROR) {
                     createResultDialog(info, code, response);
                 }
             }
@@ -215,22 +223,39 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     private void createResultDialog(String info, int code, @Nullable UpdateResponse response) {
+        if (((Activity)mContext).isFinishing()){
+            return;
+        }
         AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
         String msg;
-        if (response == null) {
+        if (response == null || code == NOUPDATE) {
             msg = info;
         } else {
-            StringBuilder sb = new StringBuilder();
-            sb.append("最新版本 : ")
-                    .append(response.getRelease().getVersionName())
-                    .append("\n")
-                    .append("新版本大小 : ")
-                    .append(Formatter.formatFileSize(mContext, response.getRelease().getSize()))
-                    .append("\n\n")
-                    .append("更新内容\n")
-                    .append(response.getRelease().getChangeLog());
+            if (code == FORCE) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("最新版本 : ")
+                        .append(response.getRelease().getVersionName())
+                        .append("<br>")
+                        .append("新版本大小 : ")
+                        .append(Formatter.formatFileSize(mContext, response.getRelease().getSize()))
+                        .append("<br><br>")
+                        .append("更新内容<br>")
+                        .append(response.getRelease().getChangeLog());
 
-            msg = sb.toString();
+                msg = sb.toString();
+            } else {
+                StringBuilder sb = new StringBuilder();
+                sb.append("最新版本 : ")
+                        .append(response.getRelease().getVersionName())
+                        .append("\n")
+                        .append("新版本大小 : ")
+                        .append(Formatter.formatFileSize(mContext, response.getRelease().getSize()))
+                        .append("\n\n")
+                        .append("更新内容\n")
+                        .append(response.getRelease().getChangeLog());
+
+                msg = sb.toString();
+            }
         }
 
         builder.setMessage(msg);
@@ -248,6 +273,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             case FORCE:
                 builder.setTitle("发现新版本");
                 builder.setCancelable(false);
+                builder.setMessage(Html.fromHtml(msg + "<br><br>" + "<font color = 'red'>低版本已不兼容,为了更好您更好的体验,请立即更新至最新版本</font>"));
                 builder.setPositiveButton("立即更新", this);
                 break;
             case ERROR:
@@ -260,24 +286,27 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 break;
         }
         mResultDialog = builder.create();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
-        } else {
-            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
-        }
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+//            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+//        } else {
+//            mResultDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+//        }
         mResultDialog.show();
     }
 
     private void showProgressDialog() {
+        if (((Activity)mContext).isFinishing()){
+            return;
+        }
         if (mUpdateListener == null) {
             if (isAutoPopup && isForce) {
                 mProgressDialog = new ProgressDialog(mContext);
                 mProgressDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
-                } else {
-                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
-                }
+//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+//                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+//                } else {
+//                    mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+//                }
                 mProgressDialog.setMessage("正在检查更新...");
                 mProgressDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
                     @Override
@@ -291,15 +320,23 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     private void showDownloadDialog() {
+        if (((Activity)mContext).isFinishing()){
+            return;
+        }
+        if (!isAutoPopup) {
+            return;
+        }
         mDownloadDialog = new ProgressDialog(mContext);
         mDownloadDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
-        } else {
-            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
-        }
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+//            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
+//        } else {
+//            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
+//        }
         mDownloadDialog.setTitle("正在下载中...");
-        mDownloadDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消下载", this);
+        if (isForceUpdate) {
+            mDownloadDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消下载", this);
+        }
         mDownloadDialog.setCancelable(false);
         mDownloadDialog.setMax(100);
         mDownloadDialog.setCanceledOnTouchOutside(false);
@@ -314,7 +351,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     public void download() {
         //下载之前删除上次下载的文件
-        String fileName = SPUtil.getString(mContext,SPKEY_DOWNLOAD_FILE);
+        String fileName = SPUtil.getString(mContext, SPKEY_DOWNLOAD_FILE);
         if (!TextUtils.isEmpty(fileName)) {
             File file = new File(fileName);
             if (file.exists()) {
@@ -322,38 +359,20 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
         }
 
-        if (NetUtil.isConnected(mContext)){
-            if (mUpdateListener != null) {
-                    mUpdateListener.onUpdateReturned(UpdateStatus.NoneNET,null);
-            }
-        }
 
         Uri uri = Uri.parse(mApkUrl);
         DownloadManager.Request request = new DownloadManager.Request(uri);
 
         if (isOnlyWifi) {
             request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
-        } else {
-            request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE | DownloadManager.Request.NETWORK_WIFI);
         }
         String title = TextUtils.isEmpty(mAppName) ? "应用升级" : mAppName;
         request.setTitle(title);
-//        request.setVisibleInDownloadsUi(false);
         request.setDescription(title + "开始下载...");
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
         request.allowScanningByMediaScanner();
         request.setDestinationInExternalFilesDir(mContext, Environment.DIRECTORY_DOWNLOADS, title);
-//        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
-//        File dir = new File(destFileDir);
-//        if (!dir.exists()) {
-//            dir.mkdirs();
-//        }
-//        File file = new File(dir, destFileName);
-//        if (file.exists() & file.isFile()) {
-//            //防止apk文件数量过多
-//            file.delete();
-//        }
-//        request.setDestinationInExternalPublicDir("/BF_DEFAULT_DIR/", "binfun.apk");
+
 
         mDownloadId = mManager.enqueue(request);
         SPUtil.putLong(mContext, SPKEY_DOWNLOAD_ID, mDownloadId);
@@ -380,7 +399,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private void updateView() {
         int[] bytesAndStatus = mDownloadManagerUtil.getBytesAndStatus(mDownloadId);
         Message message = Message.obtain();
-        message.what = DOWNLOAD_UPDATE;
+        message.what = MSG_DOWNLOAD_UPDATE;
         message.obj = bytesAndStatus;
         mHandler.sendMessage(message);
     }
@@ -388,23 +407,19 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     /**
      * 设置检查更新监听回调
      */
-    public void setOnUpdateListener(OnUpdateListener listener) {
-        mUpdateListener = listener;
+    public void setOnUpdateListener(OnUpdateListener updateListener) {
+        mUpdateListener = updateListener;
     }
 
     /**
      * 设置下载监听回调
      */
-    public void setOnDownloadListener(OnDownloadListener listener) {
-        mDownloadListener = listener;
+    public void setOnDownloadListener(OnDownloadListener downloadListener) {
+        mDownloadListener = downloadListener;
     }
 
     public void setUpdateOnlyWifi(boolean isOnlyWifi) {
         this.isOnlyWifi = isOnlyWifi;
-    }
-
-    public void setParms(@NonNull Map<String, String> parms) {
-        mParms = parms;
     }
 
 
@@ -412,40 +427,25 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         this.isAutoPopup = isAutoPopup;
     }
 
-
-//    /**
-//     * 设置APK文件下载文件夹路径
-//     *
-//     * @param fileDir 文件夹路径
-//     */
-//    public void setFileDir(String fileDir) {
-//        destFileDir = fileDir;
-//    }
-//
-//    /**
-//     * 设置APK文件名
-//     *
-//     * @param fileName 文件名
-//     */
-//    public void setFileName(String fileName) {
-//        destFileName = fileName;
-//    }
-
-    public void setVersionCode(int versionCode) {
-        mVersionCode = versionCode;
+    /**
+     * 恢复默认设置
+     */
+    public void setDefault() {
+        setUpdateOnlyWifi(false);
+        setUpdateAutoPopup(true);
+        setOnDownloadListener(null);
+        setOnUpdateListener(null);
     }
 
-    public void setChannelName(@NonNull String channel) {
-        mChannel = channel;
-    }
 
-    public void cancelCheckUpdate() {
+    private void cancelCheckUpdate() {
         if (mCheckAsyncTask != null && mCheckAsyncTask.getStatus() == AsyncTask.Status.RUNNING) {
             mCheckAsyncTask.cancel(true);
         }
     }
 
-    public void unRegister() {
+    public  void stop() {
+        mContext.getContentResolver().unregisterContentObserver(mDownloadObserver);
         cancelCheckUpdate();
         hideDialogs();
     }
@@ -454,12 +454,15 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private void hideDialogs() {
         if (mProgressDialog != null && mProgressDialog.isShowing()) {
             mProgressDialog.dismiss();
+            mProgressDialog = null;
         }
         if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
             mDownloadDialog.dismiss();
+            mDownloadDialog = null;
         }
         if (mResultDialog != null && mResultDialog.isShowing()) {
             mResultDialog.dismiss();
+            mResultDialog = null;
         }
     }
 
@@ -476,6 +479,9 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 if (mDownloadDialog != null && mDownloadDialog.isShowing()) {
                     //取消下载
                     mManager.remove(mDownloadId);
+                }
+                if (mDownloadListener != null) {
+                    mDownloadListener.onDownloadEnd(UpdateStatus.CANCEL_DOWNLOAD, null);
                 }
                 break;
             default:
@@ -545,29 +551,36 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         }
     }
 
-    public String getFileMD5(File file) {
-        if (!file.isFile()) {
-            return null;
-        }
-        MessageDigest digest = null;
-        FileInputStream in = null;
-        byte buffer[] = new byte[1024];
-        int len;
+    public int getVersionCode() {
+        PackageInfo packageInfo = null;
         try {
-            digest = MessageDigest.getInstance("MD5");
-            in = new FileInputStream(file);
-            while ((len = in.read(buffer, 0, 1024)) != -1) {
-                digest.update(buffer, 0, len);
-            }
-            in.close();
-        } catch (Exception e) {
+            packageInfo = mContext.getPackageManager().getPackageInfo(mContext.getPackageName(), 0);
+        } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
-            return null;
         }
-        BigInteger bigInt = new BigInteger(1, digest.digest());
-        return bigInt.toString(16);
+        if (packageInfo != null) {
+            return packageInfo.versionCode;
+        } else {
+            return -1;
+        }
     }
 
+
+    public String getVersionName() {
+        PackageInfo packageInfo = null;
+        try {
+            packageInfo = mContext.getPackageManager().getPackageInfo(mContext.getPackageName(), 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        if (packageInfo != null) {
+            return packageInfo.versionName;
+        } else {
+            return "";
+        }
+    }
+
+    private boolean isForceUpdate;
 
     private class CheckAsyncTask extends AsyncTask<String, Integer, String> {
         private int resultCode = NOUPDATE;
@@ -601,26 +614,18 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
             UpdateResponse updateResponse;
             if (TextUtils.isEmpty(response)) {
-                showResultDialog("请求失败,请稍后再试", ERROR, null);
+                if (mUpdateListener == null) {
+                    showResultDialog("请求失败,请稍后再试", ERROR, null);
+                } else {
+                    mUpdateListener.onUpdateReturned(UpdateStatus.TIMEOUT, null);
+                }
                 return;
             } else {
-                updateResponse = mGson.fromJson(response, UpdateResponse.class);
-//                JSONTokener jsonTokener = new JSONTokener(response);
-//                try {
-//                    JSONObject jsonObj = (JSONObject) jsonTokener.nextValue();
-//                    UpdateResponse updateResponse1 = new UpdateResponse();
-//                    updateResponse1.setCode(jsonObj.getInt("code"));
-//                    updateResponse1.setInfo(jsonObj.getString("info"));
-//                    updateResponse1.setName(jsonObj.getString("name"));
-//                    Log.d(TAG, "onPostExecute : " );
-//                } catch (JSONException e) {
-//                    e.printStackTrace();
-//                }
-
+                updateResponse = parseJsonString(response);
             }
             if (updateResponse == null) {
-                showResultDialog("服务器繁忙,请稍后再试", ERROR, null);
                 //无数据
+                showResultDialog("服务器繁忙,请稍后再试", ERROR, null);
                 return;
             }
             if (updateResponse.getCode() == -1) {
@@ -636,13 +641,14 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
                 if (release != null) {
                     mApkUrl = release.getUrl();
-                    SPUtil.putString(mContext,SPKEY_DOWNLOAD_MD5,release.getMd5());
+                    SPUtil.putString(mContext, SPKEY_DOWNLOAD_MD5, release.getMd5());
                 }
 
                 if (mUpdateListener != null) {
                     //用户设置了回调
                     if (mVersionCode < updateResponse.getIncompatibleVersion()) {
                         //强制更新
+                        isForceUpdate = true;
                         mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, updateResponse);
                     } else if (mVersionCode < release.getVersionCode()) {
                         //有更新
@@ -654,7 +660,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
                 } else {
                     //用户未设置回调
-                    if (mVersionCode < updateResponse.getIncompatibleVersion()) {
+                    if (mVersionCode <= updateResponse.getIncompatibleVersion()) {
                         //强制更新
                         resultCode = FORCE;
                         showResultDialog(null, resultCode, updateResponse);
@@ -675,13 +681,104 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         }
     }
 
+    private UpdateResponse parseJsonString(String response) {
+        JSONTokener jsonTokener = new JSONTokener(response);
+        JSONObject jsonObj = null;
+        try {
+            jsonObj = (JSONObject) jsonTokener.nextValue();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        UpdateResponse updateResponse = new UpdateResponse();
+        try {
+            updateResponse.setCode(jsonObj.getInt("code"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            updateResponse.setInfo(jsonObj.getString("info"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            updateResponse.setName(jsonObj.getString("name"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        try {
+            updateResponse.setIncompatibleVersion(jsonObj.getInt("incompatibleVersion"));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        UpdateResponse.ReleaseBean releaseBean = new UpdateResponse.ReleaseBean();
+        JSONObject releaseJson = null;
+        try {
+            releaseJson = jsonObj.getJSONObject("release");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (releaseJson != null) {
+            try {
+                releaseBean.setVersionName(releaseJson.getString("versionName"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setVersionCode(releaseJson.getInt("versionCode"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setChangeLog(releaseJson.getString("changeLog"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setTargetSdkVersion(releaseJson.getInt("targetSdkVersion"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setMinSdkVersion(releaseJson.getInt("minSdkVersion"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setUpdateDate(releaseJson.getString("updateDate"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setChannel(releaseJson.getString("channel"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setUrl(releaseJson.getString("url"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setMd5(releaseJson.getString("md5"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            try {
+                releaseBean.setSize(releaseJson.getInt("size"));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            updateResponse.setRelease(releaseBean);
+        }
+        return updateResponse;
+    }
+
     private class DownloadHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            if (msg.what == DOWNLOAD_UPDATE) {
+            if (msg.what == MSG_DOWNLOAD_UPDATE) {
                 int[] statusBytes = (int[]) msg.obj;
-                System.out.println("handleMessage : " + statusBytes[2]);
                 switch (statusBytes[2]) {
                     case DownloadManager.STATUS_PENDING:
 
@@ -690,7 +787,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         int currProgress = statusBytes[0] * 100 / statusBytes[1];
                         if (preProgress < currProgress) {
                             if (mDownloadListener != null) {
-                                mDownloadListener.onDownloadUpdate(currProgress);
+                                mDownloadListener.onDownloadUpdate(currProgress, statusBytes[0], statusBytes[1]);
                             } else {
                                 setDownloadProgress(currProgress);
                             }
@@ -701,7 +798,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                     case DownloadManager.STATUS_PAUSED:
                         break;
                     case DownloadManager.STATUS_SUCCESSFUL:
-                        Log.d(TAG, "handleMessage : file " + mDownloadManagerUtil.getFileName(mDownloadId));
+//                        Log.d(TAG, "handleMessage : file " + mDownloadManagerUtil.getFileName(mDownloadId));
                         break;
                     case DownloadManager.STATUS_FAILED:
                         if (mDownloadDialog != null) {

@@ -1,6 +1,5 @@
 package com.binfun.update.bean;
 
-import com.google.gson.annotations.SerializedName;
 
 import java.util.List;
 
@@ -24,7 +23,6 @@ public class UpdateResponse {
      * release : {"versionName":"0.1.160721.1","versionCode":80,"changeLog":"1. 重写界面，体验更流畅 2. 修复已知bug","targetSdkVersion":22,"minSdkVersion":14,"updateDate":"2016-08-05T06:37:41.600Z","channel":"shafa","url":"http://apkdl.binfun.tv/apk/BinFun4TV0.1_80v0.1.160721.1_shafa_release.apk","md5":"ec7b84edb0a4008976e904aa3f1aafb4","size":6789170}
      */
 
-    @SerializedName("package")
     private String packageX;
     /**
      * trackerServerUrl : http://cdn.freebsd.org.cn/upload/
@@ -272,5 +270,21 @@ public class UpdateResponse {
         public void setSize(int size) {
             this.size = size;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "UpdateResponse{" +
+                "packageX='" + packageX + '\'' +
+                ", tracker=" + tracker +
+                ", sc=" + sc +
+                ", description='" + description + '\'' +
+                ", incompatibleVersion=" + incompatibleVersion +
+                ", name='" + name + '\'' +
+                ", code=" + code +
+                ", info='" + info + '\'' +
+                ", release=" + release +
+                ", mkbrokers=" + mkbrokers +
+                '}';
     }
 }

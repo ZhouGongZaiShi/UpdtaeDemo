@@ -107,7 +107,7 @@ public class HttpUtil {
             // 处理源
             String info = sb.toString();
             sb.setLength(0);
-             System.out.println("数据:" + info);
+//             System.out.println("数据:" + info);
 
             return info;
         } catch (Exception e) {

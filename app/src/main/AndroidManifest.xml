@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="zhouxin.updatedemo">
+          package="zhouxin.updatedemo"
+          >
 
     <!-- 网络 -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- sd卡存储 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <!--悬浮框-->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <application
         android:name=".BaseApplication"
         android:allowBackup="true"
@@ -22,6 +22,10 @@
 
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+        <activity
+            android:name="com.binfun.update.ui.UpdateDialogActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
         </activity>
     </application>
 

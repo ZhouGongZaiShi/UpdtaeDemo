@@ -24,39 +24,30 @@ android {
 }
 
 
-task releaseMyLib(type: Jar, dependsOn: ['build']) {
+task jarMyLib(type: Jar, dependsOn: ['build']) {
     archiveName = 'my-lib.jar'
     from('build/intermediates/classes/release')
-    from(project.zipTree("libs/adapter-rxjava-2.1.0.jar"))
-    from(project.zipTree("libs/converter-gson-2.1.0.jar"))
-    from(project.zipTree("libs/gson-2.7.jar"))
-    from(project.zipTree("libs/okhttp-3.3.0.jar"))
-    from(project.zipTree("libs/okio-1.8.0.jar"))
-    from(project.zipTree("libs/retrofit-2.1.0.jar"))
-    from(project.zipTree("libs/rxandroid-1.2.0.jar"))
-    from(project.zipTree("libs/rxjava-1.1.5.jar"))
-//    into( 'build/libs')
-//    include('classes.jar')
-//    rename('classes.jar', 'my-lib.jar')
     destinationDir = file('build/libs')
     exclude('com/binfun/update/BuildConfig.class')
     exclude('com/binfun/update/BuildConfig\$*.class')
     exclude('**/R.class')
     exclude('**/R\$*.class')
     include('com/binfun/update/**/*.class')
-    include('retrofit2/adapter/rxjava/**/*.class')
-    include('retrofit2/converter/gson/**/*.class')
-    include('com/google/gson/**/*.class')
-    include('okhttp3/**/*.class')
-    include('okio/**/*.class')
-    include('retrofit2/**/*.class')
-    include('rx/android/**/*.class')
-    include('rx/**/*.class')
 }
+
+def androidSDKDir = plugins.getPlugin('com.android.library').sdkHandler.getSdkFolder()
+def androidJarDir = androidSDKDir.toString() + '/platforms/' + "${android.compileSdkVersion}" + '/android.jar'
+
+task proguardMyLib(type: proguard.gradle.ProGuardTask, dependsOn: ['jarMyLib']) {
+    injars('build/libs/my-lib.jar')
+    outjars('build/libs/my-pro-lib.jar')
+    libraryjars(androidJarDir)
+    configuration 'proguard-rules.pro'
+}
+
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     provided 'com.android.support:appcompat-v7:23.0.0'
-    compile 'com.google.code.gson:gson:2.7'
 }
