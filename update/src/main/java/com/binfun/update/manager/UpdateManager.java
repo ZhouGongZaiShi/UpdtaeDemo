@@ -209,8 +209,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
             url.delete(url.length() - 1, url.length());
         } else {
-            url.append("package=").append(mContext.getPackageName())
-//            url.append("package=").append("com.iflyor.binfuntv")
+//            url.append("package=").append(mContext.getPackageName())
+            url.append("package=").append("com.bfmarket.bbmarket")
                     .append("&channel=").append(mChannel)
                     .append("&gid=").append(mGid)
                     .append("&sysver=").append(Build.VERSION.SDK_INT)
@@ -346,7 +346,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 //            mDownloadDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_PHONE);
 //        }
         mDownloadDialog.setTitle("正在下载中...");
-        if (isForceUpdate) {
+        if (!isForceUpdate) {
             mDownloadDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "取消下载", this);
         }
         mDownloadDialog.setCancelable(false);
