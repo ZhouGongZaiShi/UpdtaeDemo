@@ -146,7 +146,13 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         mParms = parms;
     }
 
-
+    /**
+     * 初始化
+     * @param context
+     * @param channel   渠道号
+     * @param gid   GID
+     * @return
+     */
     public static UpdateManager init(@NonNull Context context, @NonNull String channel, @NonNull String gid) {
         if (mInstance == null) {
             synchronized (UpdateManager.class) {
@@ -158,6 +164,12 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         return mInstance;
     }
 
+    /**
+     *
+     * @param context
+     * @param parms 请求参数Map<String,String>,如 package=com.xx.xx, map.put("package","com.xx.xx")即可。
+     * @return
+     */
     public static UpdateManager init(@NonNull Context context, @NonNull Map<String, String> parms) {
         if (mInstance == null) {
             synchronized (UpdateManager.class) {
@@ -215,7 +227,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 //强制状态下显示所有结果的对话框
                 createResultDialog(info, code, response);
             } else {
-                if (code == UPDATE || code == FORCE || code == ERROR) {
+                if (code == UPDATE || code == FORCE) {
                     createResultDialog(info, code, response);
                 }
             }
@@ -227,8 +239,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             return;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
-        String msg;
-        if (response == null || code == NOUPDATE) {
+        String msg = "";
+        if (response == null || code == NOUPDATE || code == ERROR) {
             msg = info;
         } else {
             if (code == FORCE) {
@@ -243,7 +255,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         .append(response.getRelease().getChangeLog());
 
                 msg = sb.toString();
-            } else {
+            } else if(code == UPDATE){
                 StringBuilder sb = new StringBuilder();
                 sb.append("最新版本 : ")
                         .append(response.getRelease().getVersionName())
