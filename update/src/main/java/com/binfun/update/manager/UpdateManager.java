@@ -209,8 +209,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
             url.delete(url.length() - 1, url.length());
         } else {
-//            url.append("package=").append(mContext.getPackageName())
-            url.append("package=").append("com.bfmarket.bbmarket")
+            url.append("package=").append(mContext.getPackageName())
+//            url.append("package=").append("com.bfmarket.bbmarket")
                     .append("&channel=").append(mChannel)
                     .append("&gid=").append(mGid)
                     .append("&sysver=").append(Build.VERSION.SDK_INT)
