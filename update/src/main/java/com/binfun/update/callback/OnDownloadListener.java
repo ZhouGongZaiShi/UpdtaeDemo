@@ -6,6 +6,7 @@ package com.binfun.update.callback;
  * 创建日期 : 2016/7/28 15:11
  */
 public interface OnDownloadListener {
+    void onDownloadStart();
 
     void onDownloadUpdate(int currProgress, int progressByte, int totalByte);
 

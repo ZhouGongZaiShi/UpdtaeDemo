@@ -118,3 +118,6 @@
 -keep public class com.binfun.update.common.UpdateStatus{
     public  <fields>;
 }
+-keep  class com.binfun.update.callback.OnDownloadListener{*;}
+-keep  class com.binfun.update.callback.OnUpdateListener{*;}
+-keep  class com.binfun.update.bean.**{*;}

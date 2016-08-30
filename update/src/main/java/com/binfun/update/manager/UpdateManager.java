@@ -148,9 +148,10 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     /**
      * 初始化
+     *
      * @param context
-     * @param channel   渠道号
-     * @param gid   GID
+     * @param channel 渠道号
+     * @param gid     GID
      * @return
      */
     public static UpdateManager init(@NonNull Context context, @NonNull String channel, @NonNull String gid) {
@@ -165,9 +166,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     /**
-     *
      * @param context
-     * @param parms 请求参数Map<String,String>,如 package=com.xx.xx, map.put("package","com.xx.xx")即可。
+     * @param parms   请求参数Map<String,String>,如 package=com.xx.xx, map.put("package","com.xx.xx")即可。
      * @return
      */
     public static UpdateManager init(@NonNull Context context, @NonNull Map<String, String> parms) {
@@ -192,7 +192,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
 
-    public void update( boolean force) {
+    private void update(boolean force) {
         if (mParms == null && TextUtils.isEmpty(mChannel)) {
             throw new IllegalArgumentException("you must call setChannel(String channel),and channel cannot be empty");
         }
@@ -220,7 +220,6 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
 
-
     private void showResultDialog(String info, int code, @Nullable UpdateResponse response) {
         if (isAutoPopup) {
             if (isForce) {
@@ -235,7 +234,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     private void createResultDialog(String info, int code, @Nullable UpdateResponse response) {
-        if (((Activity)mContext).isFinishing()){
+        if (((Activity) mContext).isFinishing()) {
             return;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
@@ -255,7 +254,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         .append(response.getRelease().getChangeLog());
 
                 msg = sb.toString();
-            } else if(code == UPDATE){
+            } else if (code == UPDATE) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("最新版本 : ")
                         .append(response.getRelease().getVersionName())
@@ -307,7 +306,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     private void showProgressDialog() {
-        if (((Activity)mContext).isFinishing()){
+        if (((Activity) mContext).isFinishing()) {
             return;
         }
         if (mUpdateListener == null) {
@@ -332,7 +331,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     }
 
     private void showDownloadDialog() {
-        if (((Activity)mContext).isFinishing()){
+        if (((Activity) mContext).isFinishing()) {
             return;
         }
         if (!isAutoPopup) {
@@ -361,7 +360,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         }
     }
 
-    public void download() {
+    private void download() {
         //下载之前删除上次下载的文件
         String fileName = SPUtil.getString(mContext, SPKEY_DOWNLOAD_FILE);
         if (!TextUtils.isEmpty(fileName)) {
@@ -387,11 +386,45 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
 
         mDownloadId = mManager.enqueue(request);
+        if (mDownloadListener!=null){
+            mDownloadListener.onDownloadStart();
+        }
         SPUtil.putLong(mContext, SPKEY_DOWNLOAD_ID, mDownloadId);
         showDownloadDialog();
 
     }
 
+    public  void download(Context context,UpdateResponse updateResponse) {
+        //下载之前删除上次下载的文件
+        String fileName = SPUtil.getString(context, SPKEY_DOWNLOAD_FILE);
+        if (!TextUtils.isEmpty(fileName)) {
+            File file = new File(fileName);
+            if (file.exists()) {
+                file.delete();
+            }
+        }
+
+        Uri uri = Uri.parse(updateResponse.getRelease().getUrl());
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+
+        if (isOnlyWifi) {
+            request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
+        }
+        String title = TextUtils.isEmpty(updateResponse.getName()) ? "应用升级" : updateResponse.getName();
+        request.setTitle(title);
+        request.setDescription(title + "开始下载...");
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        request.allowScanningByMediaScanner();
+        request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, title);
+
+
+        mDownloadId = mManager.enqueue(request);
+        if (mDownloadListener!=null){
+            mDownloadListener.onDownloadStart();
+        }
+        SPUtil.putLong(mContext, SPKEY_DOWNLOAD_ID, mDownloadId);
+        showDownloadDialog();
+    }
 
     class DownloadObserver extends ContentObserver {
 
@@ -456,7 +489,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         }
     }
 
-    public  void stop() {
+    public void stop() {
         mContext.getContentResolver().unregisterContentObserver(mDownloadObserver);
         cancelCheckUpdate();
         hideDialogs();
@@ -657,7 +690,6 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 }
 
                 if (mUpdateListener != null) {
-                    //用户设置了回调
                     if (mVersionCode < updateResponse.getIncompatibleVersion()) {
                         //强制更新
                         isForceUpdate = true;
@@ -670,24 +702,23 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         mUpdateListener.onUpdateReturned(UpdateStatus.NO, updateResponse);
                     }
 
+                }
+                if (mVersionCode <= updateResponse.getIncompatibleVersion()) {
+                    //强制更新
+                    resultCode = FORCE;
+                    showResultDialog(null, resultCode, updateResponse);
+                } else if (mVersionCode < release.getVersionCode()) {
+                    //有更新
+                    resultCode = UPDATE;
+                    showResultDialog(null, resultCode, updateResponse);
                 } else {
-                    //用户未设置回调
-                    if (mVersionCode <= updateResponse.getIncompatibleVersion()) {
-                        //强制更新
-                        resultCode = FORCE;
-                        showResultDialog(null, resultCode, updateResponse);
-                    } else if (mVersionCode < release.getVersionCode()) {
-                        //有更新
-                        resultCode = UPDATE;
-                        showResultDialog(null, resultCode, updateResponse);
-                    } else {
-                        //无更新
-                        resultCode = NOUPDATE;
-                        if (isForce) {
-                            showResultDialog("已经是最新版本啦...", resultCode, updateResponse);
-                        }
+                    //无更新
+                    resultCode = NOUPDATE;
+                    if (isForce) {
+                        showResultDialog("已经是最新版本啦...", resultCode, updateResponse);
                     }
                 }
+
             }
             super.onPostExecute(response);
         }
@@ -800,9 +831,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         if (preProgress < currProgress) {
                             if (mDownloadListener != null) {
                                 mDownloadListener.onDownloadUpdate(currProgress, statusBytes[0], statusBytes[1]);
-                            } else {
-                                setDownloadProgress(currProgress);
                             }
+                            setDownloadProgress(currProgress);
                             Log.d(TAG, "curr : " + currProgress);
                         }
                         preProgress = currProgress;
@@ -818,9 +848,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                         }
                         if (mDownloadListener != null) {
                             mDownloadListener.onDownloadEnd(UpdateStatus.DOWNLOAD_COMPLETE_FAIL, null);
-                        } else {
-                            showResultDialog("下载失败,请稍后重试", ERROR, null);
                         }
+                        showResultDialog("下载失败,请稍后重试", ERROR, null);
                         break;
                     default:
                         break;
