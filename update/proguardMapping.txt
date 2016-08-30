@@ -126,95 +126,95 @@ com.binfun.update.manager.UpdateManager -> com.binfun.update.manager.UpdateManag
     android.app.ProgressDialog mProgressDialog -> v
     android.app.AlertDialog mResultDialog -> w
     boolean isForceUpdate -> x
-    98:136:void <init>(android.content.Context) -> <init>
-    139:142:void <init>(android.content.Context,java.lang.String,java.lang.String) -> <init>
-    145:147:void <init>(android.content.Context,java.util.Map) -> <init>
-    158:165:com.binfun.update.manager.UpdateManager init(android.content.Context,java.lang.String,java.lang.String) -> init
-    174:181:com.binfun.update.manager.UpdateManager init(android.content.Context,java.util.Map) -> init
-    185:187:void autoUpdate(android.content.Context) -> autoUpdate
-    190:192:void forceUpdate(android.content.Context) -> forceUpdate
-    196:220:void update(boolean) -> a
-    334:355:void showDownloadDialog() -> a
-    399:427:void download(android.content.Context,com.binfun.update.bean.UpdateResponse) -> download
-    456:457:void setOnUpdateListener(com.binfun.update.callback.OnUpdateListener) -> setOnUpdateListener
-    463:464:void setOnDownloadListener(com.binfun.update.callback.OnDownloadListener) -> setOnDownloadListener
-    467:468:void setUpdateOnlyWifi(boolean) -> setUpdateOnlyWifi
-    472:473:void setUpdateAutoPopup(boolean) -> setUpdateAutoPopup
-    479:483:void setDefault() -> setDefault
-    487:490:void cancelCheckUpdate() -> b
-    493:496:void stop() -> stop
-    1500:1512:void hideDialogs():500:512 -> stop
-    1500:1512:void stop():495 -> stop
-    516:535:void onClick(android.content.DialogInterface,int) -> onClick
-    2365:2395:void download():365:395 -> onClick
-    2365:2395:void onClick(android.content.DialogInterface,int):520 -> onClick
-    539:544:void installApk(android.content.Context,java.io.File) -> installApk
-    600:609:int getVersionCode() -> getVersionCode
-    615:624:java.lang.String getVersionName() -> getVersionName
-    728:816:com.binfun.update.bean.UpdateResponse parseJsonString(java.lang.String) -> b
-    56:56:void access$200(com.binfun.update.manager.UpdateManager) -> a
-    56:56:android.os.Handler access$300(com.binfun.update.manager.UpdateManager) -> b
-    56:56:void access$400(com.binfun.update.manager.UpdateManager) -> c
-    2445:2450:void updateView():445:450 -> c
-    2445:2450:void access$400(com.binfun.update.manager.UpdateManager):56 -> c
-    56:56:android.content.Context access$500(com.binfun.update.manager.UpdateManager) -> d
-    56:56:android.app.DownloadManager access$600(com.binfun.update.manager.UpdateManager) -> e
-    56:56:android.app.ProgressDialog access$700(com.binfun.update.manager.UpdateManager) -> f
-    56:56:com.binfun.update.callback.OnDownloadListener access$800(com.binfun.update.manager.UpdateManager) -> g
-    56:56:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse) -> a
-    3224:3234:void showResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):224:234 -> a
-    3224:3234:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse):56 -> a
-    3237:3306:void createResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):237:306 -> a
-    3237:3306:void showResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):230 -> a
-    3237:3306:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse):56 -> a
-    56:56:void access$1000(com.binfun.update.manager.UpdateManager) -> h
-    3309:3331:void showProgressDialog():309:331 -> h
-    3309:3331:void access$1000(com.binfun.update.manager.UpdateManager):56 -> h
-    56:56:android.app.ProgressDialog access$1100(com.binfun.update.manager.UpdateManager) -> i
-    56:56:int access$1200(com.binfun.update.manager.UpdateManager) -> j
-    56:56:com.binfun.update.callback.OnUpdateListener access$1300(com.binfun.update.manager.UpdateManager) -> k
-    56:56:com.binfun.update.bean.UpdateResponse access$1400$5073202a(java.lang.String) -> a
-    56:56:java.lang.String access$1502(com.binfun.update.manager.UpdateManager,java.lang.String) -> a
-    56:56:java.lang.String access$1602(com.binfun.update.manager.UpdateManager,java.lang.String) -> b
-    56:56:boolean access$1702$7269a02f(com.binfun.update.manager.UpdateManager) -> l
-    56:56:boolean access$1800(com.binfun.update.manager.UpdateManager) -> m
-    56:56:int access$1900(com.binfun.update.manager.UpdateManager) -> n
-    56:56:void access$2000(com.binfun.update.manager.UpdateManager,int) -> a
-    3358:3361:void setDownloadProgress(int):358:361 -> a
-    3358:3361:void access$2000(com.binfun.update.manager.UpdateManager,int):56 -> a
-    56:56:int access$1902(com.binfun.update.manager.UpdateManager,int) -> b
+    97:135:void <init>(android.app.Activity) -> <init>
+    138:141:void <init>(android.app.Activity,java.lang.String,java.lang.String) -> <init>
+    144:146:void <init>(android.app.Activity,java.util.Map) -> <init>
+    157:164:com.binfun.update.manager.UpdateManager init(android.app.Activity,java.lang.String,java.lang.String) -> init
+    173:180:com.binfun.update.manager.UpdateManager init(android.app.Activity,java.util.Map) -> init
+    184:186:void autoUpdate(android.app.Activity) -> autoUpdate
+    189:191:void forceUpdate(android.app.Activity) -> forceUpdate
+    195:219:void update(boolean) -> a
+    333:354:void showDownloadDialog() -> a
+    397:425:void download(android.content.Context,com.binfun.update.bean.UpdateResponse) -> download
+    454:455:void setOnUpdateListener(com.binfun.update.callback.OnUpdateListener) -> setOnUpdateListener
+    461:462:void setOnDownloadListener(com.binfun.update.callback.OnDownloadListener) -> setOnDownloadListener
+    465:466:void setUpdateOnlyWifi(boolean) -> setUpdateOnlyWifi
+    470:471:void setUpdateAutoPopup(boolean) -> setUpdateAutoPopup
+    477:481:void setDefault() -> setDefault
+    485:488:void cancelCheckUpdate() -> b
+    491:494:void stop() -> stop
+    1498:1510:void hideDialogs():498:510 -> stop
+    1498:1510:void stop():493 -> stop
+    514:533:void onClick(android.content.DialogInterface,int) -> onClick
+    2364:2393:void download():364:393 -> onClick
+    2364:2393:void onClick(android.content.DialogInterface,int):518 -> onClick
+    537:542:void installApk(android.content.Context,java.io.File) -> installApk
+    598:607:int getVersionCode() -> getVersionCode
+    613:622:java.lang.String getVersionName() -> getVersionName
+    726:814:com.binfun.update.bean.UpdateResponse parseJsonString(java.lang.String) -> b
+    55:55:void access$200(com.binfun.update.manager.UpdateManager) -> a
+    55:55:android.os.Handler access$300(com.binfun.update.manager.UpdateManager) -> b
+    55:55:void access$400(com.binfun.update.manager.UpdateManager) -> c
+    2443:2448:void updateView():443:448 -> c
+    2443:2448:void access$400(com.binfun.update.manager.UpdateManager):55 -> c
+    55:55:android.content.Context access$500(com.binfun.update.manager.UpdateManager) -> d
+    55:55:android.app.DownloadManager access$600(com.binfun.update.manager.UpdateManager) -> e
+    55:55:android.app.ProgressDialog access$700(com.binfun.update.manager.UpdateManager) -> f
+    55:55:com.binfun.update.callback.OnDownloadListener access$800(com.binfun.update.manager.UpdateManager) -> g
+    55:55:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse) -> a
+    3223:3233:void showResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):223:233 -> a
+    3223:3233:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse):55 -> a
+    3236:3305:void createResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):236:305 -> a
+    3236:3305:void showResultDialog(java.lang.String,int,com.binfun.update.bean.UpdateResponse):229 -> a
+    3236:3305:void access$900(com.binfun.update.manager.UpdateManager,java.lang.String,int,com.binfun.update.bean.UpdateResponse):55 -> a
+    55:55:void access$1000(com.binfun.update.manager.UpdateManager) -> h
+    3308:3330:void showProgressDialog():308:330 -> h
+    3308:3330:void access$1000(com.binfun.update.manager.UpdateManager):55 -> h
+    55:55:android.app.ProgressDialog access$1100(com.binfun.update.manager.UpdateManager) -> i
+    55:55:int access$1200(com.binfun.update.manager.UpdateManager) -> j
+    55:55:com.binfun.update.callback.OnUpdateListener access$1300(com.binfun.update.manager.UpdateManager) -> k
+    55:55:com.binfun.update.bean.UpdateResponse access$1400$5073202a(java.lang.String) -> a
+    55:55:java.lang.String access$1502(com.binfun.update.manager.UpdateManager,java.lang.String) -> a
+    55:55:java.lang.String access$1602(com.binfun.update.manager.UpdateManager,java.lang.String) -> b
+    55:55:boolean access$1702$7269a02f(com.binfun.update.manager.UpdateManager) -> l
+    55:55:boolean access$1800(com.binfun.update.manager.UpdateManager) -> m
+    55:55:int access$1900(com.binfun.update.manager.UpdateManager) -> n
+    55:55:void access$2000(com.binfun.update.manager.UpdateManager,int) -> a
+    3357:3360:void setDownloadProgress(int):357:360 -> a
+    3357:3360:void access$2000(com.binfun.update.manager.UpdateManager,int):55 -> a
+    55:55:int access$1902(com.binfun.update.manager.UpdateManager,int) -> b
 com.binfun.update.manager.UpdateManager$1 -> com.binfun.update.manager.a:
     com.binfun.update.manager.UpdateManager this$0 -> a
-    322:322:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
-    325:326:void onDismiss(android.content.DialogInterface) -> onDismiss
+    321:321:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
+    324:325:void onDismiss(android.content.DialogInterface) -> onDismiss
 com.binfun.update.manager.UpdateManager$CheckAsyncTask -> com.binfun.update.manager.UpdateManager$a:
     int resultCode -> b
     com.binfun.update.manager.UpdateManager this$0 -> a
-    630:631:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
-    635:637:void onPreExecute() -> onPreExecute
-    630:630:void onProgressUpdate(java.lang.Object[]) -> onProgressUpdate
-    1641:1642:void onProgressUpdate(java.lang.Integer[]):641:642 -> onProgressUpdate
-    1641:1642:void onProgressUpdate(java.lang.Object[]):630 -> onProgressUpdate
-    630:630:void onPostExecute(java.lang.Object) -> onPostExecute
-    1654:1724:void onPostExecute(java.lang.String):654:724 -> onPostExecute
-    1654:1724:void onPostExecute(java.lang.Object):630 -> onPostExecute
-    630:630:java.lang.Object doInBackground(java.lang.Object[]) -> doInBackground
-    2646:2649:java.lang.String doInBackground(java.lang.String[]):646:649 -> doInBackground
-    2646:2649:java.lang.Object doInBackground(java.lang.Object[]):630 -> doInBackground
-    630:630:void <init>(com.binfun.update.manager.UpdateManager,byte) -> <init>
+    628:629:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
+    633:635:void onPreExecute() -> onPreExecute
+    628:628:void onProgressUpdate(java.lang.Object[]) -> onProgressUpdate
+    1639:1640:void onProgressUpdate(java.lang.Integer[]):639:640 -> onProgressUpdate
+    1639:1640:void onProgressUpdate(java.lang.Object[]):628 -> onProgressUpdate
+    628:628:void onPostExecute(java.lang.Object) -> onPostExecute
+    1652:1722:void onPostExecute(java.lang.String):652:722 -> onPostExecute
+    1652:1722:void onPostExecute(java.lang.Object):628 -> onPostExecute
+    628:628:java.lang.Object doInBackground(java.lang.Object[]) -> doInBackground
+    2644:2647:java.lang.String doInBackground(java.lang.String[]):644:647 -> doInBackground
+    2644:2647:java.lang.Object doInBackground(java.lang.Object[]):628 -> doInBackground
+    628:628:void <init>(com.binfun.update.manager.UpdateManager,byte) -> <init>
 com.binfun.update.manager.UpdateManager$CompleteReceiver -> com.binfun.update.manager.UpdateManager$b:
     com.binfun.update.manager.UpdateManager this$0 -> a
-    547:547:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
-    551:596:void onReceive(android.content.Context,android.content.Intent) -> onReceive
+    545:545:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
+    549:594:void onReceive(android.content.Context,android.content.Intent) -> onReceive
 com.binfun.update.manager.UpdateManager$DownloadHandler -> com.binfun.update.manager.UpdateManager$c:
     com.binfun.update.manager.UpdateManager this$0 -> a
-    819:819:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
-    822:858:void handleMessage(android.os.Message) -> handleMessage
-    819:819:void <init>(com.binfun.update.manager.UpdateManager,byte) -> <init>
+    817:817:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
+    820:855:void handleMessage(android.os.Message) -> handleMessage
+    817:817:void <init>(com.binfun.update.manager.UpdateManager,byte) -> <init>
 com.binfun.update.manager.UpdateManager$DownloadObserver -> com.binfun.update.manager.UpdateManager$d:
     com.binfun.update.manager.UpdateManager this$0 -> a
-    432:434:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
-    438:439:void onChange(boolean) -> onChange
+    430:432:void <init>(com.binfun.update.manager.UpdateManager) -> <init>
+    436:437:void onChange(boolean) -> onChange
 com.binfun.update.utils.DownloadManagerUtil -> com.binfun.update.a.a:
     android.net.Uri CONTENT_URI -> a
     boolean isInitPauseDownload -> b

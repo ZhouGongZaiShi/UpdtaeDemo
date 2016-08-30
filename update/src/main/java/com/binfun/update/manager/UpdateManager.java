@@ -25,7 +25,6 @@ import android.support.annotation.Nullable;
 import android.text.Html;
 import android.text.TextUtils;
 import android.text.format.Formatter;
-import android.util.Log;
 import android.view.Window;
 
 import com.binfun.update.bean.UpdateResponse;
@@ -116,7 +115,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private ProgressDialog mProgressDialog;
     private AlertDialog mResultDialog;
 
-    private UpdateManager(Context context) {
+    private UpdateManager(Activity context) {
         mContext = context;
         mVersionCode = getVersionCode();
 
@@ -135,13 +134,13 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         mContext.registerReceiver(receiver, filter);
     }
 
-    private UpdateManager(Context context, String channel, String gid) {
+    private UpdateManager(Activity context, String channel, String gid) {
         this(context);
         mChannel = channel;
         mGid = gid;
     }
 
-    private UpdateManager(Context context, Map<String, String> parms) {
+    private UpdateManager(Activity context, Map<String, String> parms) {
         this(context);
         mParms = parms;
     }
@@ -154,7 +153,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
      * @param gid     GID
      * @return
      */
-    public static UpdateManager init(@NonNull Context context, @NonNull String channel, @NonNull String gid) {
+    public static UpdateManager init(@NonNull Activity context, @NonNull String channel, @NonNull String gid) {
         if (mInstance == null) {
             synchronized (UpdateManager.class) {
                 if (mInstance == null) {
@@ -170,7 +169,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
      * @param parms   请求参数Map<String,String>,如 package=com.xx.xx, map.put("package","com.xx.xx")即可。
      * @return
      */
-    public static UpdateManager init(@NonNull Context context, @NonNull Map<String, String> parms) {
+    public static UpdateManager init(@NonNull Activity context, @NonNull Map<String, String> parms) {
         if (mInstance == null) {
             synchronized (UpdateManager.class) {
                 if (mInstance == null) {
@@ -181,12 +180,12 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         return mInstance;
     }
 
-    public void autoUpdate(@NonNull Context context) {
+    public void autoUpdate(@NonNull Activity context) {
         mContext = context;
         update(false);
     }
 
-    public void forceUpdate(@NonNull Context context) {
+    public void forceUpdate(@NonNull Activity context) {
         mContext = context;
         update(true);
     }
@@ -209,8 +208,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
             }
             url.delete(url.length() - 1, url.length());
         } else {
-            url.append("package=").append(mContext.getPackageName())
-//            url.append("package=").append("com.bfmarket.bbmarket")
+//            url.append("package=").append(mContext.getPackageName())
+            url.append("package=").append("com.iflyor.binfuntv.game")
                     .append("&channel=").append(mChannel)
                     .append("&gid=").append(mGid)
                     .append("&sysver=").append(Build.VERSION.SDK_INT)
@@ -377,12 +376,11 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         if (isOnlyWifi) {
             request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
         }
-        String title = TextUtils.isEmpty(mAppName) ? "应用升级" : mAppName;
-        request.setTitle(title);
-        request.setDescription(title + "开始下载...");
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+//        String title = TextUtils.isEmpty(mAppName) ? "应用升级" : mAppName;
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
+        request.setVisibleInDownloadsUi(false);
         request.allowScanningByMediaScanner();
-        request.setDestinationInExternalFilesDir(mContext, Environment.DIRECTORY_DOWNLOADS, title);
+//        request.setDestinationInExternalFilesDir(mContext, Environment.DIRECTORY_DOWNLOADS, title);
 
 
         mDownloadId = mManager.enqueue(request);
@@ -690,9 +688,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 }
 
                 if (mUpdateListener != null) {
-                    if (mVersionCode < updateResponse.getIncompatibleVersion()) {
+                    if (mVersionCode <= updateResponse.getIncompatibleVersion()) {
                         //强制更新
-                        isForceUpdate = true;
                         mUpdateListener.onUpdateReturned(UpdateStatus.FORCE, updateResponse);
                     } else if (mVersionCode < release.getVersionCode()) {
                         //有更新
@@ -706,6 +703,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 if (mVersionCode <= updateResponse.getIncompatibleVersion()) {
                     //强制更新
                     resultCode = FORCE;
+                    isForceUpdate = true;
                     showResultDialog(null, resultCode, updateResponse);
                 } else if (mVersionCode < release.getVersionCode()) {
                     //有更新
@@ -833,7 +831,6 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                                 mDownloadListener.onDownloadUpdate(currProgress, statusBytes[0], statusBytes[1]);
                             }
                             setDownloadProgress(currProgress);
-                            Log.d(TAG, "curr : " + currProgress);
                         }
                         preProgress = currProgress;
                         break;

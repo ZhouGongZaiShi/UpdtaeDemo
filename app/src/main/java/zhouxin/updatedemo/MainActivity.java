@@ -3,14 +3,10 @@ package zhouxin.updatedemo;
 import android.os.Bundle;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 
-import com.binfun.update.callback.OnDownloadListener;
-import com.binfun.update.common.UpdateStatus;
 import com.binfun.update.manager.UpdateManager;
 
-import java.io.File;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -82,39 +78,39 @@ public class MainActivity extends AppCompatActivity {
 //            }
 //        });
 
-        mUpdateManager.setUpdateAutoPopup(false);
-        mUpdateManager.setOnDownloadListener(new OnDownloadListener() {
-            @Override
-            public void onDownloadStart() {
-                Log.d(TAG, "download start");
-            }
-
-            @Override
-            public void onDownloadUpdate(int currProgress, int statusByte, int progress) {
-                Log.d(TAG, "onDownloadUpdate :progress " + currProgress +"  progressbyte " +statusByte +" total " +progress );
-            }
-
-            @Override
-            public void onDownloadEnd(int result, String file) {
-                switch (result) {
-                    case UpdateStatus.DOWNLOAD_COMPLETE_SUCCESS:
-                        //下载成功
-                        UpdateManager.installApk(MainActivity.this, new File(file));
-                        break;
-                    case UpdateStatus.DOWNLOAD_COMPLETE_FAIL:
-                        //下载失败
-                        break;
-                    case UpdateStatus.DOWNLOAD_CHECK_MD5_FAIL:
-                        //md5校验失败
-                        break;
-                    case UpdateStatus.CANCEL_DOWNLOAD:
-                        //取消下载
-                        break;
-                    default:
-                        break;
-                }
-            }
-        });
+//        mUpdateManager.setUpdateAutoPopup(false);
+//        mUpdateManager.setOnDownloadListener(new OnDownloadListener() {
+//            @Override
+//            public void onDownloadStart() {
+//                Log.d(TAG, "download start");
+//            }
+//
+//            @Override
+//            public void onDownloadUpdate(int currProgress, int statusByte, int progress) {
+//                Log.d(TAG, "onDownloadUpdate :progress " + currProgress +"  progressbyte " +statusByte +" total " +progress );
+//            }
+//
+//            @Override
+//            public void onDownloadEnd(int result, String file) {
+//                switch (result) {
+//                    case UpdateStatus.DOWNLOAD_COMPLETE_SUCCESS:
+//                        //下载成功
+//                        UpdateManager.installApk(MainActivity.this, new File(file));
+//                        break;
+//                    case UpdateStatus.DOWNLOAD_COMPLETE_FAIL:
+//                        //下载失败
+//                        break;
+//                    case UpdateStatus.DOWNLOAD_CHECK_MD5_FAIL:
+//                        //md5校验失败
+//                        break;
+//                    case UpdateStatus.CANCEL_DOWNLOAD:
+//                        //取消下载
+//                        break;
+//                    default:
+//                        break;
+//                }
+//            }
+//        });
         mUpdateManager.autoUpdate(this);
 
 

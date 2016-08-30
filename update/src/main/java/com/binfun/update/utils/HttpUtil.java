@@ -180,7 +180,6 @@ public class HttpUtil {
             out.flush();
             out.close();
             out = null;
-            Log.w("Api.post", "result:" + connection.getResponseMessage());
             result = true;
         } catch (IOException e) {
             e.printStackTrace();
