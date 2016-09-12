@@ -82,6 +82,8 @@ public class UpdateManager implements DialogInterface.OnClickListener {
     private String mChannel;
     private String mAppName;
     private String mGid;
+    private String mPackageName;
+
 
     @IntDef({NOUPDATE, UPDATE, FORCE, ERROR})
     @Retention(RetentionPolicy.SOURCE)
@@ -117,7 +119,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     private UpdateManager(Activity context) {
         mContext = context;
-        mVersionCode = getVersionCode();
+
 
         mHandler = new DownloadHandler();
         mManager = (DownloadManager) mContext.getSystemService(Context.DOWNLOAD_SERVICE);
@@ -145,6 +147,13 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         mParms = parms;
     }
 
+    public UpdateManager(Activity context, String packageName, String channel, int versionCode) {
+        this(context);
+        mPackageName = packageName;
+        mChannel = channel;
+        mVersionCode = versionCode;
+    }
+
     /**
      * 初始化
      *
@@ -166,7 +175,25 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     /**
      * @param context
-     * @param parms   请求参数Map<String,String>,如 package=com.xx.xx, map.put("package","com.xx.xx")即可。
+     * @param packageName 包名
+     * @param channel     渠道号
+     * @param versionCode 版本号
+     * @return
+     */
+    public static UpdateManager init(@NonNull Activity context, @NonNull String packageName, @NonNull String channel, @NonNull int versionCode) {
+        if (mInstance == null) {
+            synchronized (UpdateManager.class) {
+                if (mInstance == null) {
+                    mInstance = new UpdateManager(context, packageName, channel, versionCode);
+                }
+            }
+        }
+        return mInstance;
+    }
+
+    /**
+     * @param context
+     * @param parms   请求参数Map<String,String>,必要的 package=com.xx.xx, map.put("package","com.xx.xx")即可。
      * @return
      */
     public static UpdateManager init(@NonNull Activity context, @NonNull Map<String, String> parms) {
@@ -202,18 +229,30 @@ public class UpdateManager implements DialogInterface.OnClickListener {
         mCheckAsyncTask = new CheckAsyncTask();
         StringBuilder url = new StringBuilder(Const.BASE_QUEST_URL);
         url.append("?");
+
         if (mParms != null) {
             for (String key : mParms.keySet()) {
                 url.append(key).append("=").append(mParms.get(key)).append("&");
             }
             url.delete(url.length() - 1, url.length());
         } else {
-//            url.append("package=").append(mContext.getPackageName())
-            url.append("package=").append("com.iflyor.binfuntv.game")
-                    .append("&channel=").append(mChannel)
-                    .append("&gid=").append(mGid)
+            url.append("package=");
+            if (TextUtils.isEmpty(mPackageName)) {
+//                url.append(mContext.getPackageName());
+                url.append("com.iflyor.binfuntv.game");
+            } else {
+                url.append(mPackageName);
+            }
+            url.append("&channel=").append(mChannel)
+//                    .append("&gid=").append(mGid)
                     .append("&sysver=").append(Build.VERSION.SDK_INT)
-                    .append("&ver=").append(getVersionName());
+                    .append("&ver=");
+            if (mVersionCode == 0) {
+                url.append(getVersionCode());
+            } else {
+                url.append(mVersionCode);
+            }
+
         }
         mCheckAsyncTask.execute(url.toString());
     }
@@ -384,7 +423,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
 
         mDownloadId = mManager.enqueue(request);
-        if (mDownloadListener!=null){
+        if (mDownloadListener != null) {
             mDownloadListener.onDownloadStart();
         }
         SPUtil.putLong(mContext, SPKEY_DOWNLOAD_ID, mDownloadId);
@@ -392,7 +431,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
     }
 
-    public  void download(Context context,UpdateResponse updateResponse) {
+    public void download(Context context, UpdateResponse updateResponse) {
         //下载之前删除上次下载的文件
         String fileName = SPUtil.getString(context, SPKEY_DOWNLOAD_FILE);
         if (!TextUtils.isEmpty(fileName)) {
@@ -417,7 +456,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
 
 
         mDownloadId = mManager.enqueue(request);
-        if (mDownloadListener!=null){
+        if (mDownloadListener != null) {
             mDownloadListener.onDownloadStart();
         }
         SPUtil.putLong(mContext, SPKEY_DOWNLOAD_ID, mDownloadId);
@@ -653,7 +692,7 @@ public class UpdateManager implements DialogInterface.OnClickListener {
                 mProgressDialog.dismiss();
             }
             if (mVersionCode == 0) {
-                return;
+                mVersionCode = getVersionCode();
             }
             UpdateResponse updateResponse;
             if (TextUtils.isEmpty(response)) {

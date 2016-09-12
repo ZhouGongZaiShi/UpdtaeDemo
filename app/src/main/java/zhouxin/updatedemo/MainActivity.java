@@ -21,6 +21,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mUpdateManager = UpdateManager.init(this, "shafa","dss");
+//        mUpdateManager = UpdateManager.init(this, "com.iflyor.binfuntv.game","shafa",10);
 
 //        mUpdateManager.setOnUpdateListener(new OnUpdateListener() {
 //
